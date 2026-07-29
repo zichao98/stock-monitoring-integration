@@ -27,5 +27,5 @@ export const DEFAULT_CONFIG = {
   bbStdDev: 2,
   rsiOversold: 30,
   rsiOverbought: 70,
-  pollingInterval: 60,
+  pollingInterval: 30,
 }

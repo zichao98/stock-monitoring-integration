@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { fetchRate, fetchHistoricalRates } from '../lib/api.js'
+import { fetchRate, fetchHistoricalRates, fetchIntradayRates } from '../lib/api.js'
 
-export function useRateData(pair, pollingInterval = 60) {
+export function useRateData(pair, pollingInterval = 30) {
   const [history, setHistory] = useState([])
+  const [intradayHistory, setIntradayHistory] = useState([])
   const [currentRate, setCurrentRate] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -33,6 +34,11 @@ export function useRateData(pair, pollingInterval = 60) {
         }
         return [...prev, { date: today, rate: data.rate, timestamp: Date.now() }]
       })
+
+      const intraday = await fetchIntradayRates(pair.base, pair.target)
+      if (intraday.length > 0) {
+        setIntradayHistory(intraday)
+      }
     } catch (err) {
       setError(err.message)
     } finally {
@@ -51,5 +57,5 @@ export function useRateData(pair, pollingInterval = 60) {
     }
   }, [loadHistorical, pollRate, pollingInterval])
 
-  return { history, currentRate, loading, error, lastUpdated, refresh: pollRate }
+  return { history, intradayHistory, currentRate, loading, error, lastUpdated, refresh: pollRate }
 }

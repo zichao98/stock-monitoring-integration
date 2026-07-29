@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { fetchStockPrice, fetchStockHistory } from '../lib/api.js'
+import { fetchStockPrice, fetchStockHistory, fetchIntradayStock } from '../lib/api.js'
 
-export function useStockData(stock, pollingInterval = 60) {
+export function useStockData(stock, pollingInterval = 30) {
   const [history, setHistory] = useState([])
+  const [intradayHistory, setIntradayHistory] = useState([])
   const [currentPrice, setCurrentPrice] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -33,6 +34,11 @@ export function useStockData(stock, pollingInterval = 60) {
         }
         return [...prev, { date: today, rate: data.price, timestamp: Date.now() }]
       })
+
+      const intraday = await fetchIntradayStock(stock.yahooSymbol)
+      if (intraday.length > 0) {
+        setIntradayHistory(intraday)
+      }
     } catch (err) {
       setError(err.message)
     } finally {
@@ -51,5 +57,5 @@ export function useStockData(stock, pollingInterval = 60) {
     }
   }, [loadHistorical, pollPrice, pollingInterval])
 
-  return { history, currentPrice, loading, error, lastUpdated, refresh: pollPrice }
+  return { history, intradayHistory, currentPrice, loading, error, lastUpdated, refresh: pollPrice }
 }

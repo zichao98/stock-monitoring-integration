@@ -8,7 +8,7 @@ const tooltipStyle = {
   fontSize: '12px',
 }
 
-export default function ChartView({ signals, pair }) {
+export default function ChartView({ signals, pair, intradayData }) {
   if (!signals || signals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground">
@@ -139,6 +139,25 @@ export default function ChartView({ signals, pair }) {
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#22c55e]" /> Buy Signal</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#ef4444]" /> Sell Signal</span>
       </div>
+
+      {intradayData && intradayData.length > 1 && (
+        <div className="space-y-2">
+          <div className="text-xs text-muted-foreground">Intraday (5-min intervals)</div>
+          <div className="h-40">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={intradayData} margin={{ top: 5, right: 10, bottom: 0, left: 0 }}>
+                <XAxis dataKey="date" stroke="hsl(215 20% 65%)" fontSize={10} />
+                <YAxis stroke="hsl(215 20% 65%)" fontSize={10} domain={['auto', 'auto']} tickFormatter={v => v.toFixed(3)} />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  formatter={(v) => v != null ? [v.toFixed(4), 'Price'] : ['\u2014', 'Price']}
+                />
+                <Line dataKey="rate" stroke="#22c55e" strokeWidth={1.5} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
