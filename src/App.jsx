@@ -10,12 +10,14 @@ import CurrencyCardContainer from './components/CurrencyCardContainer.jsx'
 import StockCardContainer from './components/StockCardContainer.jsx'
 import StockSearch from './components/StockSearch.jsx'
 import CurrencySearch from './components/CurrencySearch.jsx'
+import Portfolio from './components/Portfolio.jsx'
 import ChartView from './components/ChartView.jsx'
 import SignalBadge from './components/SignalBadge.jsx'
 import AIPanel from './components/AIPanel.jsx'
+import AIChatWidget from './components/AIChatWidget.jsx'
 import AlertSettings from './components/AlertSettings.jsx'
 import SettingsModal from './components/SettingsModal.jsx'
-import { Settings, Activity, RefreshCw, AlertTriangle, LineChart, CandlestickChart, Timer, X, Plus } from 'lucide-react'
+import { Settings, Activity, RefreshCw, AlertTriangle, LineChart, CandlestickChart, Timer, X, Plus, Wallet } from 'lucide-react'
 import { cn } from './lib/utils.js'
 
 const DEFAULT_STOCK_TABS = [
@@ -30,10 +32,11 @@ export default function App() {
   const [activePairId, setActivePairId] = useState('MYR-TWD')
   const [activeStockId, setActiveStockId] = useState('TW-0050')
   const [config, setConfig] = useLocalStorage('fx-config', DEFAULT_CONFIG)
-  const [apiKey, setApiKey] = useLocalStorage('fx-gemini-key', '')
+  const [apiKey, setApiKey] = useLocalStorage('openrouter-key', '')
   const [alerts, setAlerts] = useLocalStorage('fx-alerts', {})
   const [stockTabs, setStockTabs] = useLocalStorage('fx-stock-tabs', DEFAULT_STOCK_TABS)
   const [currencyPairs, setCurrencyPairs] = useLocalStorage('fx-currency-pairs', CURRENCY_PAIRS)
+  const [portfolio, setPortfolio] = useLocalStorage('fx-portfolio', [])
   const [showAlertSettings, setShowAlertSettings] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [activeAlerts, setActiveAlerts] = useState([])
@@ -50,6 +53,7 @@ export default function App() {
   const stockData = useStockData(activeStock, config.pollingInterval)
 
   const isFxTab = activeTab === 'fx'
+  const isPortfolioTab = activeTab === 'portfolio'
   const currentData = isFxTab ? fxData : stockData
   const { history, loading, error, refresh, lastUpdated } = currentData
   const currentValue = isFxTab ? fxData.currentRate : stockData.currentPrice
@@ -203,6 +207,20 @@ export default function App() {
     })
   }, [setCurrencyPairs, currencyPairs])
 
+  const handleAddHolding = useCallback((holding) => {
+    setPortfolio(prev => [...prev, holding])
+  }, [setPortfolio])
+
+  const handleRemoveHolding = useCallback((holdingId) => {
+    const holding = portfolio.find(h => h.id === holdingId)
+    setConfirmDelete({
+      message: `Remove ${holding?.symbol || holdingId} from your portfolio?`,
+      onConfirm: () => {
+        setPortfolio(prev => prev.filter(h => h.id !== holdingId))
+      },
+    })
+  }, [setPortfolio, portfolio])
+
   const prevRate = history.length > 1 ? history[history.length - 2].rate : null
   const dailyChange = percentChange(currentValue || 0, prevRate)
 
@@ -275,6 +293,18 @@ export default function App() {
             >
               <LineChart className="w-4 h-4" />
               Forex
+            </button>
+            <button
+              onClick={() => setActiveTab('portfolio')}
+              className={cn(
+                'flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors',
+                activeTab === 'portfolio'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Wallet className="w-4 h-4" />
+              Portfolio
             </button>
             {stockTabs.map(tab => (
               <div key={tab.id} className="flex items-center group">
@@ -369,6 +399,18 @@ export default function App() {
           />
         )}
 
+        {/* Portfolio Tab */}
+        {isPortfolioTab && (
+          <Portfolio
+            holdings={portfolio}
+            onAdd={handleAddHolding}
+            onRemove={handleRemoveHolding}
+            onUpdate={() => {}}
+            apiKey={apiKey}
+            onOpenSettings={() => setShowSettings(true)}
+          />
+        )}
+
         {/* Cards Grid */}
         {isFxTab ? (
           currencyPairs.length === 0 ? (
@@ -431,7 +473,7 @@ export default function App() {
         ) : null}
 
         {/* Error */}
-        {error && (
+        {error && !isPortfolioTab && (
           <div className="flex items-center gap-2 p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
             <AlertTriangle className="w-4 h-4 flex-shrink-0" />
             <span>Failed to fetch latest {isFxTab ? 'rate' : 'price'}: {error}. Retrying automatically...</span>
@@ -439,6 +481,7 @@ export default function App() {
         )}
 
         {/* Main Content Grid */}
+        {!isPortfolioTab && (
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Chart */}
           <div className="lg:col-span-2 rounded-xl border border-border bg-card p-5">
@@ -477,9 +520,10 @@ export default function App() {
             />
           </div>
         </div>
+        )}
 
         {/* Signal Details */}
-        {currentSignal && (
+        {currentSignal && !isPortfolioTab && (
           <div className="rounded-xl border border-border bg-card p-5">
             <h3 className="font-bold mb-3">Latest Signal Analysis — {activeDisplayLabel}</h3>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -504,7 +548,7 @@ export default function App() {
 
         {/* Footer */}
         <footer className="text-center text-xs text-muted-foreground py-4">
-          <p>FX & Stocks: Yahoo Finance (real-time) • Historical: frankfurter.app • AI: Google Gemini</p>
+          <p>FX & Stocks: Yahoo Finance (real-time) • Historical: frankfurter.app • AI: OpenRouter</p>
           <p className="mt-1">This is not financial advice. Always do your own research.</p>
         </footer>
       </main>
@@ -556,6 +600,8 @@ export default function App() {
           </div>
         </div>
       )}
+
+      <AIChatWidget apiKey={apiKey} onOpenSettings={() => setShowSettings(true)} />
     </div>
   )
 }

@@ -39,22 +39,22 @@ export default function SettingsModal({ config, apiKey, onSave, onClose }) {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <KeyRound className="w-4 h-4 text-primary" />
-              <h3 className="font-semibold text-sm">Gemini API Key</h3>
+              <h3 className="font-semibold text-sm">OpenRouter API Key</h3>
             </div>
             <input
               type="password"
               value={localApiKey}
               onChange={e => setLocalApiKey(e.target.value)}
-              placeholder="Enter your Google Gemini API key"
+              placeholder="Enter your OpenRouter API key"
               className="w-full px-3 py-2 rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
             />
             <a
-              href="https://aistudio.google.com/apikey"
+              href="https://openrouter.ai/keys"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1.5"
             >
-              Get a free API key from Google AI Studio
+              Get a free API key from OpenRouter
               <ExternalLink className="w-3 h-3" />
             </a>
           </div>

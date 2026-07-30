@@ -1,5 +1,9 @@
 import { useState } from 'react'
-import { getAIInsight } from '../lib/gemini.js'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
+import { getAIInsight } from '../lib/ai.js'
 import { Sparkles, RefreshCw, AlertCircle, KeyRound } from 'lucide-react'
 import { cn } from '../lib/utils.js'
 
@@ -10,7 +14,7 @@ export default function AIPanel({ pair, currentRate, signals, history, apiKey, o
 
   const handleGenerate = async () => {
     if (!apiKey) {
-      setError('Please set your Gemini API key in Settings first.')
+      setError('Please set your OpenRouter API key in Settings first.')
       return
     }
     setLoading(true)
@@ -42,7 +46,7 @@ export default function AIPanel({ pair, currentRate, signals, history, apiKey, o
           </div>
           <div>
             <h3 className="font-bold">AI Market Insights</h3>
-            <p className="text-xs text-muted-foreground">Powered by Google Gemini</p>
+            <p className="text-xs text-muted-foreground">Powered by OpenRouter</p>
           </div>
         </div>
         <button
@@ -67,7 +71,7 @@ export default function AIPanel({ pair, currentRate, signals, history, apiKey, o
             onClick={onOpenSettings}
             className="text-sm text-primary hover:underline"
           >
-            Click here to set your Gemini API key →
+            Click here to set your OpenRouter API key →
           </button>
         </div>
       )}
@@ -88,10 +92,8 @@ export default function AIPanel({ pair, currentRate, signals, history, apiKey, o
       )}
 
       {insight && (
-        <div className="prose prose-invert prose-sm max-w-none">
-          <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-            {insight}
-          </div>
+        <div className="prose prose-invert prose-sm max-w-none text-sm leading-relaxed text-foreground/90 prose-p:my-2 prose-headings:my-2 prose-ul:my-2 prose-li:my-0.5 prose-strong:text-foreground prose-table:text-xs prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1 prose-code:text-primary prose-code:before:content-none prose-code:after:content-none">
+          <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{insight}</ReactMarkdown>
         </div>
       )}
     </div>

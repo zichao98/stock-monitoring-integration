@@ -1,3 +1,5 @@
+// CAN BE DELETED
+
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
 
 export async function getAIInsight(apiKey, context) {
