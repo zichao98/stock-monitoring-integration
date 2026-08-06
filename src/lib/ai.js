@@ -12,7 +12,8 @@ const FALLBACK_MODELS = [
 ]
 
 async function callOpenRouter(apiKey, messages, maxTokens = 500) {
-  if (!apiKey) {
+  const key = (apiKey || '').trim()
+  if (!key) {
     throw new Error('Please set your OpenRouter API key in Settings.')
   }
 
@@ -24,7 +25,7 @@ async function callOpenRouter(apiKey, messages, maxTokens = 500) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${key}`,
         },
         body: JSON.stringify({
           model,

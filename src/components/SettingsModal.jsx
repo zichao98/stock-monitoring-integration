@@ -44,8 +44,8 @@ export default function SettingsModal({ config, apiKey, onSave, onClose }) {
             <input
               type="password"
               value={localApiKey}
-              onChange={e => setLocalApiKey(e.target.value)}
-              placeholder="Enter your OpenRouter API key"
+              onChange={e => setLocalApiKey(e.target.value.trim())}
+              placeholder="Enter your OpenRouter API key (sk-or-...)"
               className="w-full px-3 py-2 rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
             />
             <a
