@@ -1,8 +1,12 @@
 // --- Shared fetch utilities (Yahoo Finance via CORS proxies) ---
 
 const YAHOO_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart'
+// Order matters: the same-origin Pages Function proxy is the most reliable
+// (server-side fetch, no browser CORS, not blocked like the public proxies).
+// The public proxies remain as fallback for local dev, where the Pages
+// Function is not running and /api/proxy will 404 from the Vite dev server.
 const CORS_PROXIES = [
-  (url) => url,
+  (url) => `/api/proxy?url=${encodeURIComponent(url)}`,
   (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
   (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
 ]
