@@ -28,7 +28,7 @@ export function AnimatedNumber({ value, decimals = 2, className }) {
     return () => { cancelAnimationFrame(frame); clearTimeout(clear) }
   }, [value])
 
-  return <span className={cn('num', flash, className)}>{shown == null ? '—' : shown.toFixed(decimals)}</span>
+  return <span className={cn('num', flash, className)}>{shown == null ? '—' : shown.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}</span>
 }
 
 /** Small area chart coloured by direction. */

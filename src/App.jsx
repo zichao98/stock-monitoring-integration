@@ -37,7 +37,6 @@ export default function App() {
   const [alerts, setAlerts] = useLocalStorage('fx-alerts', {})
   const [stockTabs, setStockTabs] = useLocalStorage('fx-stock-tabs', DEFAULT_STOCK_TABS)
   const [currencyPairs, setCurrencyPairs] = useLocalStorage('fx-currency-pairs', CURRENCY_PAIRS)
-  const [portfolio, setPortfolio] = useLocalStorage('fx-portfolio', [])
   const [showAlertSettings, setShowAlertSettings] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [activeAlerts, setActiveAlerts] = useState([])
@@ -214,20 +213,6 @@ export default function App() {
     })
   }, [setCurrencyPairs, currencyPairs])
 
-  const handleAddHolding = useCallback((holding) => {
-    setPortfolio(prev => [...prev, holding])
-  }, [setPortfolio])
-
-  const handleRemoveHolding = useCallback((holdingId) => {
-    const holding = portfolio.find(h => h.id === holdingId)
-    setConfirmDelete({
-      message: `Remove ${holding?.symbol || holdingId} from your portfolio?`,
-      onConfirm: () => {
-        setPortfolio(prev => prev.filter(h => h.id !== holdingId))
-      },
-    })
-  }, [setPortfolio, portfolio])
-
   const prevRate = history.length > 1 ? history[history.length - 2].rate : null
   const dailyChange = percentChange(currentValue || 0, prevRate)
 
@@ -372,10 +357,6 @@ export default function App() {
         {isPortfolioTab && (
           <div className="arrive" style={{ '--i': 1 }}>
             <Portfolio
-              holdings={portfolio}
-              onAdd={handleAddHolding}
-              onRemove={handleRemoveHolding}
-              onUpdate={() => {}}
               apiKey={apiKey}
               onOpenSettings={() => setShowSettings(true)}
             />

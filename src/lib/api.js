@@ -185,6 +185,7 @@ export async function fetchStockPrice(yahooSymbol) {
   if (price == null) throw new Error(`No price for ${yahooSymbol}`)
   return {
     price,
+    previousClose: result.meta?.chartPreviousClose ?? result.meta?.previousClose ?? null,
     symbol: yahooSymbol,
     currency: result.meta?.currency || 'Unknown',
     exchangeName: result.meta?.exchangeName || 'Unknown',

@@ -1,312 +1,245 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
-import { Plus, X, Trash2, Loader2, TrendingUp, TrendingDown, Wallet } from 'lucide-react'
-import { searchStockSymbols, fetchStockPrice } from '../lib/api.js'
+import { Loader2, RefreshCw, ExternalLink, AlertTriangle, Wallet } from 'lucide-react'
+import { fetchStockPrice } from '../lib/api.js'
 import { getPortfolioInsight } from '../lib/ai.js'
 import { cn } from '../lib/utils.js'
+import { useLengsHoldings, useMyrRates } from '../hooks/useLengsHoldings.js'
+import { AnimatedNumber, Delta } from './ui.jsx'
 
-export default function Portfolio({ holdings, onAdd, onRemove, onUpdate, onAskAI, apiKey, onOpenSettings }) {
-  const [showForm, setShowForm] = useState(false)
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState([])
-  const [searching, setSearching] = useState(false)
-  const [selectedStock, setSelectedStock] = useState(null)
-  const [quantity, setQuantity] = useState('')
-  const [buyPrice, setBuyPrice] = useState('')
-  const [prices, setPrices] = useState({})
+const LENGS_URL = 'https://lengs-funding.zichaoleng55.workers.dev/#portfolio'
+const MARKETS = [
+  { id: 'TW', label: 'Taiwan', currency: 'TWD', color: 'rgb(var(--blue))' },
+  { id: 'MY', label: 'Malaysia', currency: 'MYR', color: 'rgb(var(--yellow))' },
+  { id: 'US', label: 'United States', currency: 'USD', color: 'rgb(var(--purple))' },
+]
+const fmt = (n, digits = 2) => n == null ? '—' : n.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })
+const signed = (n, digits = 2) => n == null ? '—' : `${n >= 0 ? '+' : ''}${fmt(n, digits)}`
+const decimalsFor = (currency) => currency === 'TWD' ? 0 : 2
+
+/** Holdings mirrored from Lengs Funding: read-only here, edited there. Totals are converted to MYR. */
+export default function Portfolio({ apiKey, onOpenSettings }) {
+  const { holdings: synced, updatedAt, syncedAt, loading: syncing, error: syncError, refresh } = useLengsHoldings()
+  const { toMyr } = useMyrRates()
+  const [quotes, setQuotes] = useState({})
   const [loadingPrices, setLoadingPrices] = useState(false)
-  const debounceRef = null
+  const symbolsKey = synced.map(h => h.symbol).join(',')
 
-  const doSearch = useCallback(async (q) => {
-    if (!q.trim()) { setResults([]); return }
-    setSearching(true)
-    const items = await searchStockSymbols(q)
-    setResults(items)
-    setSearching(false)
-  }, [])
-
-  const handleChange = (e) => {
-    const val = e.target.value
-    setQuery(val)
-    if (debounceRef) clearTimeout(debounceRef)
-    setTimeout(() => doSearch(val), 350)
-  }
-
-  const handleSelectStock = (item) => {
-    setSelectedStock(item)
-    setQuery(`${item.symbol} — ${item.shortName}`)
-    setResults([])
-  }
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (!selectedStock || !quantity || !buyPrice) return
-    const holding = {
-      id: `PF-${selectedStock.symbol}-${Date.now()}`,
-      symbol: selectedStock.symbol,
-      yahooSymbol: selectedStock.symbol,
-      label: selectedStock.shortName,
-      market: selectedStock.market,
-      quantity: parseFloat(quantity),
-      buyPrice: parseFloat(buyPrice),
-    }
-    onAdd(holding)
-    setSelectedStock(null)
-    setQuery('')
-    setQuantity('')
-    setBuyPrice('')
-    setShowForm(false)
-  }
-
-  // Fetch live prices for all holdings
+  // Live prices for every holding, refreshed every 30s
   useEffect(() => {
-    if (holdings.length === 0) return
+    if (!synced.length) return
     let cancelled = false
-    setLoadingPrices(true)
-
-    const fetchAllPrices = async () => {
-      const newPrices = {}
-      for (const h of holdings) {
-        try {
-          const data = await fetchStockPrice(h.yahooSymbol || h.symbol)
-          if (data && data.currentPrice != null) {
-            newPrices[h.id] = data.currentPrice
-          }
-        } catch {
-          // skip failed fetches
-        }
-      }
-      if (!cancelled) {
-        setPrices(newPrices)
-        setLoadingPrices(false)
-      }
+    // Apply each quote as it lands so one slow or unknown symbol does not hold up the rest
+    const load = async () => {
+      setLoadingPrices(true)
+      await Promise.allSettled(synced.map(h => fetchStockPrice(h.symbol).then(q => {
+        if (!cancelled) setQuotes(prev => ({ ...prev, [h.symbol]: q }))
+      })))
+      if (!cancelled) setLoadingPrices(false)
     }
+    load()
+    const id = setInterval(load, 30000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [symbolsKey])
 
-    fetchAllPrices()
-    const interval = setInterval(fetchAllPrices, 30000)
-
-    return () => {
-      cancelled = true
-      clearInterval(interval)
+  const rows = useMemo(() => synced.map(h => {
+    const q = quotes[h.symbol]
+    const price = q?.price ?? null
+    const value = price != null ? price * h.quantity : null
+    const pnl = value != null ? value - h.cost : null
+    const dayChange = q?.previousClose ? (price / q.previousClose - 1) * 100 : null
+    return {
+      ...h, price, value, pnl, dayChange,
+      avgCost: h.quantity ? h.cost / h.quantity : 0,
+      pnlPct: pnl != null && h.cost > 0 ? (pnl / h.cost) * 100 : null,
+      // Without a quote, count the holding at cost so totals are not understated
+      valueMyr: toMyr(value ?? h.cost, h.currency),
+      costMyr: toMyr(h.cost, h.currency),
     }
-  }, [holdings])
+  }), [synced, quotes, toMyr])
 
-  const totalCost = holdings.reduce((sum, h) => sum + h.quantity * h.buyPrice, 0)
-  const totalValue = holdings.reduce((sum, h) => {
-    const current = prices[h.id]
-    return sum + (current != null ? current * h.quantity : 0)
-  }, 0)
-  const totalPnl = totalValue - totalCost
-  const totalPnlPercent = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0
+  const total = rows.reduce((t, r) => ({ value: t.value + (r.valueMyr || 0), cost: t.cost + (r.costMyr || 0) }), { value: 0, cost: 0 })
+  const totalPnl = total.value - total.cost
+  const totalPnlPct = total.cost ? (totalPnl / total.cost) * 100 : null
+  const byMarket = MARKETS.map(m => {
+    const list = rows.filter(r => r.market === m.id).sort((a, b) => (b.valueMyr || 0) - (a.valueMyr || 0))
+    const value = list.reduce((s, r) => s + (r.value ?? r.cost), 0)
+    const cost = list.reduce((s, r) => s + r.cost, 0)
+    const valueMyr = list.reduce((s, r) => s + (r.valueMyr || 0), 0)
+    return { ...m, list, value, cost, pnl: value - cost, valueMyr, weight: total.value ? valueMyr / total.value * 100 : 0 }
+  }).filter(m => m.list.length)
+  const fxReady = rows.length === 0 || rows.every(r => r.costMyr != null)
+
+  // Shape expected by PortfolioAI
+  const aiHoldings = rows.map(r => ({ id: r.symbol, symbol: `${r.code} (${r.currency})`, label: r.name, quantity: r.quantity, buyPrice: r.avgCost }))
+  const aiPrices = Object.fromEntries(rows.map(r => [r.symbol, r.price]))
 
   return (
-    <div className="space-y-6">
-      {/* Summary Cards */}
-      {holdings.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="panel p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <Wallet className="w-4 h-4 text-muted-foreground" />
-              <p className="text-xs text-muted-foreground">Total Cost</p>
-            </div>
-            <p className="text-2xl font-bold tabular-nums">{totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-          </div>
-          <div className="panel p-5">
-            <div className="flex items-center gap-2 mb-2">
-              {totalPnl >= 0 ? <TrendingUp className="w-4 h-4 text-green-400" /> : <TrendingDown className="w-4 h-4 text-red-400" />}
-              <p className="text-xs text-muted-foreground">Current Value</p>
-            </div>
-            <p className="text-2xl font-bold tabular-nums">
-              {loadingPrices && holdings.length > 0 ? '...' : totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </p>
-          </div>
-          <div className="panel p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <p className="text-xs text-muted-foreground">Total P&L</p>
-            </div>
-            <p className={cn('text-2xl font-bold tabular-nums', totalPnl >= 0 ? 'text-green-400' : 'text-red-400')}>
-              {loadingPrices ? '...' : `${totalPnl >= 0 ? '+' : ''}${totalPnl.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-            </p>
-            <p className={cn('text-xs font-medium', totalPnl >= 0 ? 'text-green-400' : 'text-red-400')}>
-              {loadingPrices ? '' : `${totalPnl >= 0 ? '+' : ''}${totalPnlPercent.toFixed(2)}%`}
-            </p>
-          </div>
+    <div className="space-y-5">
+      {/* Sync status */}
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <span className={cn('w-2 h-2 rounded-full', syncError ? 'bg-red-500' : syncing ? 'bg-yellow-500 animate-pulse' : 'bg-green-500')} />
+          <span>
+            Synced from <strong className="text-foreground font-semibold">Lengs Funding</strong>
+            {updatedAt ? ` · book updated ${new Date(updatedAt).toLocaleString()}` : ''}
+          </span>
         </div>
-      )}
-
-      {/* Add Holding Button / Form */}
-      <div className="panel p-5">
-        {!showForm ? (
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/15 text-primary hover:bg-primary/25 text-sm font-medium transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Add Holding
+        <div className="flex items-center gap-2">
+          <a href={LENGS_URL} target="_blank" rel="noopener" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-muted hover:bg-input text-xs font-semibold transition-colors">
+            Edit in Lengs Funding <ExternalLink className="w-3 h-3" />
+          </a>
+          <button onClick={refresh} className="round-button !w-8 !h-8" title="Sync now" aria-label="Sync now">
+            <RefreshCw className={cn('w-3.5 h-3.5', syncing && 'animate-spin')} />
           </button>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Search Stock</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={query}
-                  onChange={handleChange}
-                  placeholder="Search by symbol or name (e.g. AAPL, 2330, MU)..."
-                  className="w-full px-4 py-2 rounded-lg bg-muted/70 border border-transparent text-foreground focus:outline-none focus:bg-card focus:border-primary/50 focus:ring-4 focus:ring-primary/15 transition text-sm"
-                  autoFocus
-                />
-                {searching && (
-                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground animate-spin" />
-                )}
-                {results.length > 0 && (
-                  <div className="absolute top-full mt-2 w-full popover z-50 max-h-60 overflow-y-auto">
-                    {results.map((item) => (
-                      <button
-                        key={item.symbol}
-                        type="button"
-                        onClick={() => handleSelectStock(item)}
-                        className="flex items-center justify-between w-full px-3 py-2 hover:bg-muted/60 transition-colors border-b border-border/60 last:border-0 text-left"
-                      >
-                        <div>
-                          <span className="text-sm font-semibold">{item.symbol}</span>
-                          <span className="text-xs text-muted-foreground ml-2">{item.shortName}</span>
-                        </div>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{item.exchange || item.market}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Quantity (shares)</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={quantity}
-                  onChange={e => setQuantity(e.target.value)}
-                  placeholder="100"
-                  className="w-full px-4 py-2 rounded-lg bg-muted/70 border border-transparent text-foreground focus:outline-none focus:bg-card focus:border-primary/50 focus:ring-4 focus:ring-primary/15 transition text-sm"
-                  required
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Buy Price (per share)</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={buyPrice}
-                  onChange={e => setBuyPrice(e.target.value)}
-                  placeholder="150.00"
-                  className="w-full px-4 py-2 rounded-lg bg-muted/70 border border-transparent text-foreground focus:outline-none focus:bg-card focus:border-primary/50 focus:ring-4 focus:ring-primary/15 transition text-sm"
-                  required
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-medium transition-colors"
-              >
-                Add to Portfolio
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowForm(false); setSelectedStock(null); setQuery(''); setQuantity(''); setBuyPrice('') }}
-                className="px-4 py-2 rounded-lg bg-muted text-muted-foreground hover:bg-muted/80 text-sm font-medium transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
+        </div>
       </div>
 
-      {/* Holdings Table */}
-      {holdings.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-          <Wallet className="w-12 h-12 mb-3 opacity-30" />
-          <p className="text-sm">Your portfolio is empty. Click "Add Holding" to get started.</p>
+      {syncError && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-red-500/10 text-red-500 text-sm">
+          <AlertTriangle className="w-4 h-4 flex-none" />
+          <span>Could not sync from Lengs Funding ({syncError}).{synced.length ? ` Showing the copy from ${new Date(syncedAt).toLocaleString()}.` : ''}</span>
+        </div>
+      )}
+
+      {rows.length === 0 ? (
+        <div className="panel flex flex-col items-center justify-center py-16 text-muted-foreground">
+          {syncing ? <Loader2 className="w-6 h-6 animate-spin mb-3" /> : null}
+          <p className="text-sm">{syncing ? 'Loading holdings from Lengs Funding…' : 'No holdings in Lengs Funding yet.'}</p>
         </div>
       ) : (
-        <div className="panel overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Symbol</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground">Qty</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground">Buy Price</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground">Current</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground">Cost Basis</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground">Market Value</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground">P&L</th>
-                <th className="px-2 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {holdings.map(h => {
-                const current = prices[h.id]
-                const cost = h.quantity * h.buyPrice
-                const value = current != null ? current * h.quantity : null
-                const pnl = value != null ? value - cost : null
-                const pnlPercent = pnl != null && cost > 0 ? (pnl / cost) * 100 : null
+        <>
+          {/* Summary */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Metric label="Market value" note={`${rows.length} holdings · in MYR`}>
+              {fxReady ? <>RM <AnimatedNumber value={total.value} decimals={2} /></> : '…'}
+            </Metric>
+            <Metric label="Cost basis" note="in MYR at today's FX">
+              {fxReady ? <>RM <span className="num">{fmt(total.cost)}</span></> : '…'}
+            </Metric>
+            <Metric label="Unrealised P&L" note={loadingPrices && !Object.keys(quotes).length ? 'Fetching prices…' : 'price vs. average cost'}
+              tone={totalPnl >= 0 ? 'text-green-500' : 'text-red-500'} extra={fxReady && <Delta value={totalPnlPct} />}>
+              {fxReady ? <span className="num">{signed(totalPnl)}</span> : '…'}
+            </Metric>
+          </div>
 
-                return (
-                  <tr key={h.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                    <td className="px-4 py-3">
-                      <div className="font-semibold">{h.symbol}</div>
-                      <div className="text-xs text-muted-foreground truncate max-w-32">{h.label}</div>
-                    </td>
-                    <td className="text-right px-4 py-3 tabular-nums">{h.quantity}</td>
-                    <td className="text-right px-4 py-3 tabular-nums">{h.buyPrice.toFixed(2)}</td>
-                    <td className="text-right px-4 py-3 tabular-nums">
-                      {current != null ? current.toFixed(2) : '—'}
-                    </td>
-                    <td className="text-right px-4 py-3 tabular-nums">{cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td className="text-right px-4 py-3 tabular-nums">
-                      {value != null ? value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
-                    </td>
-                    <td className={cn('text-right px-4 py-3 tabular-nums font-medium', pnl == null ? '' : pnl >= 0 ? 'text-green-400' : 'text-red-400')}>
-                      {pnl == null ? '—' : `${pnl >= 0 ? '+' : ''}${pnl.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                      {pnlPercent != null && (
-                        <div className="text-xs">{pnlPercent >= 0 ? '+' : ''}{pnlPercent.toFixed(2)}%</div>
-                      )}
-                    </td>
-                    <td className="px-2 py-3">
-                      <button
-                        onClick={() => onRemove(h.id)}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                        title="Remove holding"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+          {/* Allocation */}
+          <div className="panel p-5">
+            <div className="flex items-center justify-between mb-3">
+              <p className="eyebrow">ALLOCATION BY MARKET</p>
+            </div>
+            <div className="flex h-3 rounded-full overflow-hidden bg-muted">
+              {byMarket.map(m => (
+                <i key={m.id} className="h-full transition-[width] duration-700" style={{ width: `${m.weight}%`, background: m.color }} />
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-x-6 gap-y-2 mt-3 text-sm">
+              {byMarket.map(m => (
+                <span key={m.id} className="flex items-center gap-2">
+                  <i className="w-2.5 h-2.5 rounded-full" style={{ background: m.color }} />
+                  <span className="text-muted-foreground">{m.label}</span>
+                  <strong className="num">{m.weight.toFixed(1)}%</strong>
+                </span>
+              ))}
+            </div>
+          </div>
 
-      {/* AI Strategy Discussion */}
-      {holdings.length > 0 && (
-        <PortfolioAI
-          holdings={holdings}
-          prices={prices}
-          totalCost={totalCost}
-          totalValue={totalValue}
-          totalPnl={totalPnl}
-          apiKey={apiKey}
-          onOpenSettings={onOpenSettings}
-        />
+          {/* Holdings by market */}
+          {byMarket.map((m, mi) => (
+            <div key={m.id} className="arrive panel overflow-hidden" style={{ '--i': mi + 2 }}>
+              <div className="flex flex-wrap items-end justify-between gap-3 px-5 pt-5 pb-3">
+                <div>
+                  <p className="eyebrow">{m.label.toUpperCase()} · {m.currency}</p>
+                  <h3 className="text-lg font-semibold tracking-tight">{m.list.length} holdings</h3>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold num">{m.currency} {fmt(m.value, decimalsFor(m.currency))}</p>
+                  <p className={cn('text-xs font-semibold num', m.pnl >= 0 ? 'text-green-500' : 'text-red-500')}>
+                    {signed(m.pnl, decimalsFor(m.currency))} ({m.cost ? signed(m.pnl / m.cost * 100) : '—'}%)
+                  </p>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[640px]">
+                  <thead>
+                    <tr className="text-xs text-muted-foreground border-y border-border/60">
+                      <th className="text-left font-medium px-5 py-2.5">Holding</th>
+                      <th className="text-right font-medium px-3 py-2.5">Shares</th>
+                      <th className="text-right font-medium px-3 py-2.5">Avg cost / Price</th>
+                      <th className="text-right font-medium px-3 py-2.5">Value</th>
+                      <th className="text-right font-medium px-3 py-2.5">P&L</th>
+                      <th className="text-left font-medium px-5 py-2.5 w-36">Weight</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {m.list.map(r => {
+                      const weight = total.value ? (r.valueMyr || 0) / total.value * 100 : 0
+                      return (
+                        <tr key={r.symbol} className="border-b border-border/60 last:border-0 hover:bg-muted/40 transition-colors">
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold num">{r.code}</span>
+                              <span className="truncate max-w-[180px]">{r.name}</span>
+                            </div>
+                            <div className="text-xs text-muted-foreground num">{r.symbol}</div>
+                          </td>
+                          <td className="text-right px-3 py-3 num">{fmt(r.quantity, Number.isInteger(r.quantity) ? 0 : 3)}</td>
+                          <td className="text-right px-3 py-3 num">
+                            <div className="text-muted-foreground">{fmt(r.avgCost)}</div>
+                            <div className="font-semibold">{r.price != null ? <AnimatedNumber value={r.price} decimals={2} /> : <span className="text-muted-foreground font-normal" title="No live quote for this symbol">no quote</span>}</div>
+                          </td>
+                          <td className="text-right px-3 py-3 num">
+                            {fmt(r.value, decimalsFor(r.currency))}
+                            {r.dayChange != null && <div><Delta value={r.dayChange} className="!px-1.5 !py-0 text-[10px]" /></div>}
+                          </td>
+                          <td className={cn('text-right px-3 py-3 num font-semibold', r.pnl == null ? 'text-muted-foreground' : r.pnl >= 0 ? 'text-green-500' : 'text-red-500')}>
+                            {signed(r.pnl, decimalsFor(r.currency))}
+                            {r.pnlPct != null && <div className="text-xs font-medium">{signed(r.pnlPct)}%</div>}
+                          </td>
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                                <i className="block h-full rounded-full transition-[width] duration-700" style={{ width: `${Math.min(100, weight)}%`, background: m.color }} />
+                              </div>
+                              <span className="text-xs text-muted-foreground num w-10 text-right">{weight.toFixed(1)}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+
+          <PortfolioAI
+            holdings={aiHoldings}
+            prices={aiPrices}
+            totalCost={total.cost}
+            totalValue={total.value}
+            totalPnl={totalPnl}
+            apiKey={apiKey}
+            onOpenSettings={onOpenSettings}
+          />
+        </>
       )}
+    </div>
+  )
+}
+
+function Metric({ label, note, tone, extra, children }) {
+  return (
+    <div className="panel p-5">
+      <p className="text-xs text-muted-foreground mb-1.5">{label}</p>
+      <div className="flex items-center gap-2 flex-wrap">
+        <p className={cn('text-[26px] leading-tight font-bold num', tone)}>{children}</p>
+        {extra}
+      </div>
+      <p className="text-xs text-muted-foreground mt-1">{note}</p>
     </div>
   )
 }
