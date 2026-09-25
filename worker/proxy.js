@@ -1,4 +1,4 @@
-// Cloudflare Pages Function — same-origin CORS proxy for Yahoo Finance.
+// Same-origin CORS proxy for Yahoo Finance, served by the Worker in index.js.
 // Server-side fetch is not subject to browser CORS, and Cloudflare's egress
 // IPs are not blocked by the public CORS proxies that the client falls back to.
 //
@@ -23,11 +23,11 @@ function json(status, payload) {
   })
 }
 
-export async function onRequestOptions() {
+export function proxyOptions() {
   return new Response(null, { status: 204, headers: CORS_HEADERS })
 }
 
-export async function onRequestGet({ request }) {
+export async function proxyGet(request) {
   const url = new URL(request.url)
   const target = url.searchParams.get('url')
   if (!target) return json(400, { error: 'Missing url parameter' })

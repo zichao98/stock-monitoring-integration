@@ -6,11 +6,11 @@ export default function SignalBadge({ signal, size = 'md' }) {
   const { label, color, bg } = formatSignal(signal)
   const Icon = signal?.type === 'BUY' ? TrendingUp : signal?.type === 'SELL' ? TrendingDown : Minus
 
-  const sizeClasses = size === 'lg' ? 'text-lg px-4 py-2' : 'text-sm px-3 py-1'
-  const iconSize = size === 'lg' ? 'w-5 h-5' : 'w-4 h-4'
+  const sizeClasses = size === 'lg' ? 'text-sm px-3.5 py-1.5' : 'text-[11px] px-2.5 py-1'
+  const iconSize = size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5'
 
   return (
-    <div className={cn('inline-flex items-center gap-2 rounded-full font-semibold', color, bg, sizeClasses)}>
+    <div className={cn('inline-flex items-center gap-1.5 rounded-full font-semibold whitespace-nowrap tracking-wide', color, bg, sizeClasses)}>
       <Icon className={iconSize} />
       {label}
       {signal?.confidence != null && signal.type !== 'HOLD' && (

@@ -20,9 +20,9 @@ export default function SettingsModal({ config, apiKey, onSave, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="sheet-backdrop" onClick={onClose}>
       <div
-        className="w-full max-w-lg max-h-[90vh] overflow-y-auto scrollbar-thin rounded-xl border border-border bg-card p-6 shadow-2xl"
+        className="w-full max-w-lg max-h-[90vh] overflow-y-auto scrollbar-thin sheet panel p-6"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -30,7 +30,7 @@ export default function SettingsModal({ config, apiKey, onSave, onClose }) {
             <SettingsIcon className="w-5 h-5 text-primary" />
             <h2 className="text-lg font-bold">Settings</h2>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted">
+          <button onClick={onClose} className="round-button" aria-label="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -46,7 +46,7 @@ export default function SettingsModal({ config, apiKey, onSave, onClose }) {
               value={localApiKey}
               onChange={e => setLocalApiKey(e.target.value.trim())}
               placeholder="Enter your OpenRouter API key (sk-or-...)"
-              className="w-full px-3 py-2 rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+              className="w-full px-3 py-2 rounded-lg bg-muted/70 border border-transparent text-foreground focus:outline-none focus:bg-card focus:border-primary/50 focus:ring-4 focus:ring-primary/15 transition text-sm"
             />
             <a
               href="https://openrouter.ai/keys"
@@ -84,13 +84,13 @@ export default function SettingsModal({ config, apiKey, onSave, onClose }) {
         <div className="flex gap-3 mt-6">
           <button
             onClick={handleSave}
-            className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors"
+            className="flex-1 px-4 py-2 rounded-full bg-primary text-primary-foreground font-semibold shadow-[0_6px_16px_hsl(var(--primary)/.3)] hover:brightness-110 active:scale-95 transition"
           >
             Save Settings
           </button>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-muted text-muted-foreground font-medium hover:bg-muted/80 transition-colors"
+            className="px-4 py-2 rounded-full bg-muted text-foreground font-semibold hover:bg-input active:scale-95 transition"
           >
             Cancel
           </button>
@@ -109,7 +109,7 @@ function NumberInput({ label, value, onChange, step = '1' }) {
         step={step}
         value={value}
         onChange={e => onChange(parseFloat(e.target.value) || 0)}
-        className="w-full px-3 py-1.5 rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+        className="w-full px-3 py-1.5 rounded-lg bg-muted/70 border border-transparent text-foreground focus:outline-none focus:bg-card focus:border-primary/50 focus:ring-4 focus:ring-primary/15 transition text-sm"
       />
     </div>
   )

@@ -3,7 +3,7 @@ import { useRateData } from '../hooks/useRateData.js'
 import { computeSignals } from '../lib/signals.js'
 import CurrencyCard from './CurrencyCard.jsx'
 
-export default function CurrencyCardContainer({ pair, config, alerts, onToggleAlert, onSelect, isActive }) {
+export default function CurrencyCardContainer({ pair, config, alerts, onToggleAlert, onSelect, onRemove, isActive, index }) {
   const { history, currentRate, loading } = useRateData(pair, config.pollingInterval)
 
   const { current: signal } = useMemo(() => {
@@ -19,7 +19,9 @@ export default function CurrencyCardContainer({ pair, config, alerts, onToggleAl
       alerts={alerts}
       onToggleAlert={onToggleAlert}
       onSelect={onSelect}
+      onRemove={onRemove}
       isActive={isActive}
+      index={index}
     />
   )
 }

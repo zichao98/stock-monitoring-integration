@@ -107,14 +107,14 @@ export default function Portfolio({ holdings, onAdd, onRemove, onUpdate, onAskAI
       {/* Summary Cards */}
       {holdings.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-border bg-card p-5">
+          <div className="panel p-5">
             <div className="flex items-center gap-2 mb-2">
               <Wallet className="w-4 h-4 text-muted-foreground" />
               <p className="text-xs text-muted-foreground">Total Cost</p>
             </div>
             <p className="text-2xl font-bold tabular-nums">{totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
-          <div className="rounded-xl border border-border bg-card p-5">
+          <div className="panel p-5">
             <div className="flex items-center gap-2 mb-2">
               {totalPnl >= 0 ? <TrendingUp className="w-4 h-4 text-green-400" /> : <TrendingDown className="w-4 h-4 text-red-400" />}
               <p className="text-xs text-muted-foreground">Current Value</p>
@@ -123,7 +123,7 @@ export default function Portfolio({ holdings, onAdd, onRemove, onUpdate, onAskAI
               {loadingPrices && holdings.length > 0 ? '...' : totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           </div>
-          <div className="rounded-xl border border-border bg-card p-5">
+          <div className="panel p-5">
             <div className="flex items-center gap-2 mb-2">
               <p className="text-xs text-muted-foreground">Total P&L</p>
             </div>
@@ -138,7 +138,7 @@ export default function Portfolio({ holdings, onAdd, onRemove, onUpdate, onAskAI
       )}
 
       {/* Add Holding Button / Form */}
-      <div className="rounded-xl border border-border bg-card p-5">
+      <div className="panel p-5">
         {!showForm ? (
           <button
             onClick={() => setShowForm(true)}
@@ -157,20 +157,20 @@ export default function Portfolio({ holdings, onAdd, onRemove, onUpdate, onAskAI
                   value={query}
                   onChange={handleChange}
                   placeholder="Search by symbol or name (e.g. AAPL, 2330, MU)..."
-                  className="w-full px-4 py-2 rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                  className="w-full px-4 py-2 rounded-lg bg-muted/70 border border-transparent text-foreground focus:outline-none focus:bg-card focus:border-primary/50 focus:ring-4 focus:ring-primary/15 transition text-sm"
                   autoFocus
                 />
                 {searching && (
                   <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground animate-spin" />
                 )}
                 {results.length > 0 && (
-                  <div className="absolute top-full mt-2 w-full rounded-lg border border-border bg-card shadow-xl z-50 max-h-60 overflow-y-auto">
+                  <div className="absolute top-full mt-2 w-full popover z-50 max-h-60 overflow-y-auto">
                     {results.map((item) => (
                       <button
                         key={item.symbol}
                         type="button"
                         onClick={() => handleSelectStock(item)}
-                        className="flex items-center justify-between w-full px-3 py-2 hover:bg-muted/50 transition-colors border-b border-border last:border-0 text-left"
+                        className="flex items-center justify-between w-full px-3 py-2 hover:bg-muted/60 transition-colors border-b border-border/60 last:border-0 text-left"
                       >
                         <div>
                           <span className="text-sm font-semibold">{item.symbol}</span>
@@ -192,7 +192,7 @@ export default function Portfolio({ holdings, onAdd, onRemove, onUpdate, onAskAI
                   value={quantity}
                   onChange={e => setQuantity(e.target.value)}
                   placeholder="100"
-                  className="w-full px-4 py-2 rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                  className="w-full px-4 py-2 rounded-lg bg-muted/70 border border-transparent text-foreground focus:outline-none focus:bg-card focus:border-primary/50 focus:ring-4 focus:ring-primary/15 transition text-sm"
                   required
                 />
               </div>
@@ -204,7 +204,7 @@ export default function Portfolio({ holdings, onAdd, onRemove, onUpdate, onAskAI
                   value={buyPrice}
                   onChange={e => setBuyPrice(e.target.value)}
                   placeholder="150.00"
-                  className="w-full px-4 py-2 rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                  className="w-full px-4 py-2 rounded-lg bg-muted/70 border border-transparent text-foreground focus:outline-none focus:bg-card focus:border-primary/50 focus:ring-4 focus:ring-primary/15 transition text-sm"
                   required
                 />
               </div>
@@ -235,7 +235,7 @@ export default function Portfolio({ holdings, onAdd, onRemove, onUpdate, onAskAI
           <p className="text-sm">Your portfolio is empty. Click "Add Holding" to get started.</p>
         </div>
       ) : (
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="panel overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
@@ -376,7 +376,7 @@ Keep it practical and easy to understand. Use plain language.`
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
+    <div className="panel p-5">
       <div className="flex items-center gap-2 mb-4">
         <div className="p-1.5 rounded-lg bg-primary/15">
           <Wallet className="w-5 h-5 text-primary" />
@@ -402,7 +402,7 @@ Keep it practical and easy to understand. Use plain language.`
           value={question}
           onChange={e => setQuestion(e.target.value)}
           placeholder="Ask about your portfolio strategy (optional)..."
-          className="flex-1 px-4 py-2 rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+          className="flex-1 px-4 py-2 rounded-lg bg-muted/70 border border-transparent text-foreground focus:outline-none focus:bg-card focus:border-primary/50 focus:ring-4 focus:ring-primary/15 transition text-sm"
           onKeyDown={e => { if (e.key === 'Enter' && !loading) handleAsk() }}
         />
         <button
@@ -433,7 +433,7 @@ Keep it practical and easy to understand. Use plain language.`
       )}
 
       {insight && (
-        <div className="prose prose-invert prose-sm max-w-none text-sm leading-relaxed text-foreground/90 prose-p:my-2 prose-headings:my-2 prose-ul:my-2 prose-li:my-0.5 prose-strong:text-foreground prose-table:text-xs prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1 prose-code:text-primary prose-code:before:content-none prose-code:after:content-none">
+        <div className="prose dark:prose-invert prose-sm max-w-none text-sm leading-relaxed text-foreground/90 prose-p:my-2 prose-headings:my-2 prose-ul:my-2 prose-li:my-0.5 prose-strong:text-foreground prose-table:text-xs prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1 prose-code:text-primary prose-code:before:content-none prose-code:after:content-none">
           <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{insight}</ReactMarkdown>
         </div>
       )}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useLayoutEffect, useRef } from 'react'
 import { CURRENCY_PAIRS, TAIWAN_STOCKS, US_STOCKS, DEFAULT_CONFIG } from './config.js'
 import { useRateData } from './hooks/useRateData.js'
 import { useStockData } from './hooks/useStockData.js'
@@ -19,6 +19,7 @@ import AlertSettings from './components/AlertSettings.jsx'
 import SettingsModal from './components/SettingsModal.jsx'
 import { Settings, Activity, RefreshCw, AlertTriangle, LineChart, CandlestickChart, Timer, X, Plus, Wallet } from 'lucide-react'
 import { cn } from './lib/utils.js'
+import { AnimatedNumber, CountdownRing, Delta } from './components/ui.jsx'
 
 const DEFAULT_STOCK_TABS = [
   { id: 'tw-stocks', label: 'Taiwan Stocks', stocks: TAIWAN_STOCKS },
@@ -43,6 +44,12 @@ export default function App() {
   const [renamingTab, setRenamingTab] = useState(null)
   const [renameValue, setRenameValue] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(null)
+
+  const switchTab = useCallback((id) => {
+    const apply = () => { setActiveTab(id); window.scrollTo({ top: 0, behavior: 'instant' }) }
+    if (document.startViewTransition && id !== activeTab && !matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(apply)
+    else apply()
+  }, [activeTab])
 
   const activePair = currencyPairs.find(p => p.id === activePairId)
   const allStocks = stockTabs.flatMap(t => t.stocks)
@@ -225,153 +232,98 @@ export default function App() {
   const dailyChange = percentChange(currentValue || 0, prevRate)
 
   const activeDisplayLabel = isFxTab
-    ? `${activePair.base}/${activePair.target}`
-    : `${activeStock.symbol} — ${activeStock.label}`
+    ? `${activePair?.base}/${activePair?.target}`
+    : `${activeStock?.symbol} — ${activeStock?.label}`
 
   const alertItem = isFxTab
-    ? { ...activePair, displayLabel: `${activePair.base}/${activePair.target}`, assetType: 'forex' }
-    : { ...activeStock, displayLabel: `${activeStock.symbol} — ${activeStock.label}`, assetType: 'stock' }
+    ? { ...activePair, displayLabel: `${activePair?.base}/${activePair?.target}`, assetType: 'forex' }
+    : { ...activeStock, displayLabel: `${activeStock?.symbol} — ${activeStock?.label}`, assetType: 'stock' }
 
   const rateDecimals = isFxTab ? 4 : 2
 
+  const lastUpdatedLabel = lastUpdated ? new Date(lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null
+  const navItems = [
+    { id: 'fx', label: 'Forex', icon: LineChart },
+    { id: 'portfolio', label: 'Portfolio', icon: Wallet },
+    ...stockTabs.map(tab => ({ id: tab.id, label: tab.label, icon: CandlestickChart, removable: true })),
+  ]
+  const segmentedProps = {
+    items: navItems,
+    active: activeTab,
+    onSelect: switchTab,
+    renaming: renamingTab,
+    renameValue,
+    setRenameValue,
+    onRenameSubmit: handleRenameSubmit,
+    onRenameCancel: () => setRenamingTab(null),
+    onRename: handleRenameTab,
+    onRemove: handleRemoveTab,
+    onAdd: handleAddTab,
+  }
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/15">
-              <Activity className="w-6 h-6 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold">Stop Monitor</h1>
-              <p className="text-xs text-muted-foreground">FX & Stock trading signals</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
+      <header className="sticky top-0 z-40 bg-background/75 backdrop-blur-2xl backdrop-saturate-150 border-b border-border/60">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-4">
+          <button onClick={() => switchTab('fx')} className="flex items-center gap-2.5 flex-none text-left">
+            <span className="grid place-items-center w-9 h-9 rounded-[11px] bg-gradient-to-br from-[#0a84ff] to-[#5e5ce6] text-white shadow-[0_4px_12px_rgb(10_132_255/.35)]">
+              <Activity className="w-5 h-5" strokeWidth={2.4} />
+            </span>
+            <span className="leading-tight">
+              <strong className="block text-[15px] tracking-tight">Stock Monitor</strong>
+              <small className="block text-[9px] tracking-[.14em] text-muted-foreground">STOCKS · FX · SIGNALS</small>
+            </span>
+          </button>
+
+          <Segmented className="hidden md:flex min-w-0" {...segmentedProps} />
+
+          <div className="ml-auto flex items-center gap-2 flex-none">
             {activeAlerts.length > 0 && (
               <button
                 onClick={() => setActiveAlerts([])}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/15 text-red-400 text-sm font-medium animate-pulse-glow-red"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/15 text-red-500 text-xs font-semibold animate-pulse-glow-red"
               >
-                <AlertTriangle className="w-4 h-4" />
-                {activeAlerts.length} Alert{activeAlerts.length > 1 ? 's' : ''}
+                <AlertTriangle className="w-3.5 h-3.5" />
+                {activeAlerts.length}<span className="hidden sm:inline"> Alert{activeAlerts.length > 1 ? 's' : ''}</span>
               </button>
             )}
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-muted text-muted-foreground text-sm tabular-nums" title="Time until next update">
-              <Timer className="w-4 h-4" />
-              <span>{secondsLeft}s</span>
-            </div>
-            <button
-              onClick={refresh}
-              className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-              title="Refresh now"
-            >
-              <RefreshCw className={cn('w-5 h-5', loading && 'animate-spin')} />
+            {!isPortfolioTab && <CountdownRing seconds={secondsLeft} total={config.pollingInterval} />}
+            <button onClick={refresh} className="round-button" title="Refresh now" aria-label="Refresh now">
+              <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
             </button>
-            <button
-              onClick={() => setShowSettings(true)}
-              className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-              title="Settings"
-            >
-              <Settings className="w-5 h-5" />
+            <button onClick={() => setShowSettings(true)} className="round-button" title="Settings" aria-label="Settings">
+              <Settings className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex gap-1 items-center">
-            <button
-              onClick={() => setActiveTab('fx')}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors',
-                activeTab === 'fx'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <LineChart className="w-4 h-4" />
-              Forex
-            </button>
-            <button
-              onClick={() => setActiveTab('portfolio')}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors',
-                activeTab === 'portfolio'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <Wallet className="w-4 h-4" />
-              Portfolio
-            </button>
-            {stockTabs.map(tab => (
-              <div key={tab.id} className="flex items-center group">
-                {renamingTab === tab.id ? (
-                  <input
-                    autoFocus
-                    value={renameValue}
-                    onChange={e => setRenameValue(e.target.value)}
-                    onBlur={handleRenameSubmit}
-                    onKeyDown={e => { if (e.key === 'Enter') handleRenameSubmit(); if (e.key === 'Escape') setRenamingTab(null) }}
-                    className="px-2 py-1 text-sm border-b-2 border-primary bg-transparent text-foreground focus:outline-none w-32"
-                  />
-                ) : (
-                  <button
-                    onClick={() => setActiveTab(tab.id)}
-                    onDoubleClick={() => handleRenameTab(tab.id)}
-                    className={cn(
-                      'flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors',
-                      activeTab === tab.id
-                        ? 'border-primary text-primary'
-                        : 'border-transparent text-muted-foreground hover:text-foreground'
-                    )}
-                  >
-                    <CandlestickChart className="w-4 h-4" />
-                    {tab.label}
-                  </button>
-                )}
-                <button
-                  onClick={() => handleRemoveTab(tab.id)}
-                  className="p-1 rounded text-muted-foreground hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="Remove tab"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-            <button
-              onClick={handleAddTab}
-              className="flex items-center gap-1 px-3 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-primary transition-colors"
-              title="Add new tab"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-          </div>
+        {/* Tabs on small screens */}
+        <div className="md:hidden px-4 pb-3">
+          <Segmented {...segmentedProps} />
         </div>
       </header>
 
       {/* Alert Banner */}
       {activeAlerts.length > 0 && (
-        <div className="max-w-7xl mx-auto px-4 pt-4">
+        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 pt-4 space-y-2">
           {activeAlerts.map((a, i) => (
             <div
               key={i}
               className={cn(
-                'flex items-center justify-between p-3 rounded-lg border mb-2',
-                a.type === 'buy' ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-red-500/10 border-red-500/30 text-red-400'
+                'arrive flex items-center justify-between gap-3 px-4 py-3 rounded-lg',
+                a.type === 'buy' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
               )}
             >
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4" />
+              <div className="flex items-center gap-2 min-w-0">
+                <AlertTriangle className="w-4 h-4 flex-none" />
                 <span className="text-sm font-medium">
                   {a.pair} — {a.type.toUpperCase()} target reached! {isFxTab ? 'Rate' : 'Price'} {a.rate.toFixed(rateDecimals)} hit your target of {a.target}
                 </span>
               </div>
               <button
                 onClick={() => setActiveAlerts(prev => prev.filter((_, idx) => idx !== i))}
-                className="text-xs hover:underline"
+                className="text-xs font-semibold hover:underline flex-none"
               >
                 Dismiss
               </button>
@@ -380,93 +332,94 @@ export default function App() {
         </div>
       )}
 
-      <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+      <main key={activeTab} className="page-in flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+        {/* Page heading */}
+        <section className="arrive pt-1">
+          <p className="eyebrow">{isFxTab ? 'FOREX' : isPortfolioTab ? 'PORTFOLIO' : 'WATCHLIST'}</p>
+          <h1 className="text-[34px] leading-tight font-bold tracking-tight">
+            {isFxTab ? 'Currency pairs' : isPortfolioTab ? 'My holdings' : activeStockTab?.label}
+          </h1>
+          {!isPortfolioTab && (
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {isFxTab ? `${currencyPairs.length} pairs` : `${activeStockTab?.stocks.length || 0} stocks`} · updates every {config.pollingInterval}s{lastUpdatedLabel ? ` · last ${lastUpdatedLabel}` : ''}
+            </p>
+          )}
+        </section>
+
         {/* Search bar for stock tabs */}
         {activeStockTab && (
-          <StockSearch
-            watchlist={activeStockTab.stocks}
-            onAdd={handleAddStock}
-            onRemove={handleRemoveStock}
-          />
+          <div className="arrive relative z-30" style={{ '--i': 1 }}>
+            <StockSearch
+              watchlist={activeStockTab.stocks}
+              onAdd={handleAddStock}
+              onRemove={handleRemoveStock}
+            />
+          </div>
         )}
 
         {/* Search bar for forex tab */}
         {isFxTab && (
-          <CurrencySearch
-            pairs={currencyPairs}
-            onAdd={handleAddCurrencyPair}
-            onRemove={handleRemoveCurrencyPair}
-          />
+          <div className="arrive relative z-30" style={{ '--i': 1 }}>
+            <CurrencySearch
+              pairs={currencyPairs}
+              onAdd={handleAddCurrencyPair}
+              onRemove={handleRemoveCurrencyPair}
+            />
+          </div>
         )}
 
         {/* Portfolio Tab */}
         {isPortfolioTab && (
-          <Portfolio
-            holdings={portfolio}
-            onAdd={handleAddHolding}
-            onRemove={handleRemoveHolding}
-            onUpdate={() => {}}
-            apiKey={apiKey}
-            onOpenSettings={() => setShowSettings(true)}
-          />
+          <div className="arrive" style={{ '--i': 1 }}>
+            <Portfolio
+              holdings={portfolio}
+              onAdd={handleAddHolding}
+              onRemove={handleRemoveHolding}
+              onUpdate={() => {}}
+              apiKey={apiKey}
+              onOpenSettings={() => setShowSettings(true)}
+            />
+          </div>
         )}
 
         {/* Cards Grid */}
         {isFxTab ? (
           currencyPairs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-              <LineChart className="w-12 h-12 mb-3 opacity-30" />
-              <p className="text-sm">No currency pairs. Use the search bar above to add pairs.</p>
-            </div>
+            <EmptyState icon={LineChart}>No currency pairs yet. Use the search bar above to add one.</EmptyState>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
-              {currencyPairs.map(pair => (
-                <div key={pair.id} className="relative">
-                  <CurrencyCardContainer
-                    pair={pair}
-                    config={config}
-                    alerts={alerts[pair.id]}
-                    onToggleAlert={() => { setActivePairId(pair.id); setShowAlertSettings(true) }}
-                    onSelect={() => setActivePairId(pair.id)}
-                    isActive={activePairId === pair.id}
-                  />
-                  <button
-                    onClick={() => handleRemoveCurrencyPair(pair.id)}
-                    className="absolute top-2 right-2 z-10 p-1.5 rounded-lg bg-muted/80 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                    title="Remove pair"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
+              {currencyPairs.map((pair, i) => (
+                <CurrencyCardContainer
+                  key={pair.id}
+                  index={i + 2}
+                  pair={pair}
+                  config={config}
+                  alerts={alerts[pair.id]}
+                  onToggleAlert={() => { setActivePairId(pair.id); setShowAlertSettings(true) }}
+                  onSelect={() => setActivePairId(pair.id)}
+                  onRemove={() => handleRemoveCurrencyPair(pair.id)}
+                  isActive={activePairId === pair.id}
+                />
               ))}
             </div>
           )
         ) : activeStockTab ? (
           activeStockTab.stocks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-              <CandlestickChart className="w-12 h-12 mb-3 opacity-30" />
-              <p className="text-sm">This tab is empty. Use the search bar above to add stocks.</p>
-            </div>
+            <EmptyState icon={CandlestickChart}>This tab is empty. Use the search bar above to add stocks.</EmptyState>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {activeStockTab.stocks.map(stock => (
-                <div key={stock.id} className="relative">
-                  <StockCardContainer
-                    stock={stock}
-                    config={config}
-                    alerts={alerts[stock.id]}
-                    onToggleAlert={() => { setActiveStockId(stock.id); setShowAlertSettings(true) }}
-                    onSelect={() => setActiveStockId(stock.id)}
-                    isActive={activeStockId === stock.id}
-                  />
-                  <button
-                    onClick={() => handleRemoveStock(stock.yahooSymbol)}
-                    className="absolute top-2 right-2 z-10 p-1.5 rounded-lg bg-muted/80 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                    title="Remove from tab"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
+              {activeStockTab.stocks.map((stock, i) => (
+                <StockCardContainer
+                  key={stock.id}
+                  index={i + 2}
+                  stock={stock}
+                  config={config}
+                  alerts={alerts[stock.id]}
+                  onToggleAlert={() => { setActiveStockId(stock.id); setShowAlertSettings(true) }}
+                  onSelect={() => setActiveStockId(stock.id)}
+                  onRemove={() => handleRemoveStock(stock.yahooSymbol)}
+                  isActive={activeStockId === stock.id}
+                />
               ))}
             </div>
           )
@@ -474,41 +427,35 @@ export default function App() {
 
         {/* Error */}
         {error && !isPortfolioTab && (
-          <div className="flex items-center gap-2 p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+          <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-red-500/10 text-red-500 text-sm">
             <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-            <span>Failed to fetch latest {isFxTab ? 'rate' : 'price'}: {error}. Retrying automatically...</span>
+            <span>Failed to fetch latest {isFxTab ? 'rate' : 'price'}: {error}. Retrying automatically…</span>
           </div>
         )}
 
         {/* Main Content Grid */}
-        {!isPortfolioTab && (
-        <div className="grid gap-6 lg:grid-cols-3">
+        {!isPortfolioTab && (isFxTab ? activePair : activeStock) && (
+        <div className="grid gap-5 lg:grid-cols-3">
           {/* Chart */}
-          <div className="lg:col-span-2 rounded-xl border border-border bg-card p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-bold">{activeDisplayLabel}</h2>
-                <p className="text-xs text-muted-foreground">
-                  {isFxTab ? 'Rate history with technical indicators' : 'Price history with technical indicators'}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
+          <div className="arrive lg:col-span-2 panel p-5 sm:p-6 min-w-0" style={{ '--i': 4 }}>
+            <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
+              <div className="min-w-0">
+                <p className="eyebrow">{isFxTab ? 'RATE HISTORY' : 'PRICE HISTORY'} · WITH INDICATORS</p>
+                <h2 className="text-xl font-semibold tracking-tight truncate">{activeDisplayLabel}</h2>
                 {currentValue != null && (
-                  <div className="text-right">
-                    <div className="text-xl font-bold tabular-nums">{currentValue.toFixed(rateDecimals)}</div>
-                    <div className={cn('text-xs font-medium', dailyChange >= 0 ? 'text-green-400' : 'text-red-400')}>
-                      {dailyChange >= 0 ? '+' : ''}{dailyChange.toFixed(2)}% today
-                    </div>
+                  <div className="flex items-center gap-2.5 mt-2">
+                    <AnimatedNumber value={currentValue} decimals={rateDecimals} className="text-[40px] leading-none font-bold" />
+                    <Delta value={prevRate != null ? dailyChange : null} className="text-sm" />
                   </div>
                 )}
-                {currentSignal && <SignalBadge signal={currentSignal} size="lg" />}
               </div>
+              {currentSignal && <SignalBadge signal={currentSignal} size="lg" />}
             </div>
             <ChartView signals={signals} pair={isFxTab ? activePair : activeStock} intradayData={intradayData} />
           </div>
 
           {/* AI Panel */}
-          <div className="lg:col-span-1">
+          <div className="arrive lg:col-span-1 min-w-0" style={{ '--i': 5 }}>
             <AIPanel
               pair={isFxTab ? activePair : activeStock}
               currentRate={currentValue}
@@ -524,20 +471,21 @@ export default function App() {
 
         {/* Signal Details */}
         {currentSignal && !isPortfolioTab && (
-          <div className="rounded-xl border border-border bg-card p-5">
-            <h3 className="font-bold mb-3">Latest Signal Analysis — {activeDisplayLabel}</h3>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="arrive panel p-5 sm:p-6" style={{ '--i': 6 }}>
+            <p className="eyebrow">LATEST SIGNAL</p>
+            <h3 className="text-lg font-semibold tracking-tight mb-4">{activeDisplayLabel}</h3>
+            <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
               <StatBox label="Signal" value={currentSignal.type} highlight={currentSignal.type} />
-              <StatBox label="Confidence" value={`${currentSignal.confidence.toFixed(0)}%`} />
-              <StatBox label="RSI" value={currentSignal.rsi?.toFixed(1) || '—'} />
+              <StatBox label="Confidence" value={`${currentSignal.confidence.toFixed(0)}%`} meter={currentSignal.confidence} />
+              <StatBox label="RSI" value={currentSignal.rsi?.toFixed(1) || '—'} meter={currentSignal.rsi} />
               <StatBox label={isFxTab ? 'Rate' : 'Price'} value={currentSignal.rate.toFixed(rateDecimals)} />
             </div>
-            <div className="mt-4">
-              <p className="text-xs text-muted-foreground mb-2">Reasons:</p>
-              <ul className="space-y-1">
+            <div className="mt-5">
+              <p className="eyebrow mb-2">REASONS</p>
+              <ul className="space-y-2">
                 {currentSignal.reasons.map((r, i) => (
-                  <li key={i} className="text-sm flex items-start gap-2">
-                    <span className="text-primary mt-0.5">•</span>
+                  <li key={i} className="text-sm flex items-start gap-2.5">
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary flex-none" />
                     <span>{r}</span>
                   </li>
                 ))}
@@ -545,13 +493,12 @@ export default function App() {
             </div>
           </div>
         )}
-
-        {/* Footer */}
-        <footer className="text-center text-xs text-muted-foreground py-4">
-          <p>FX & Stocks: Yahoo Finance (real-time) • Historical: frankfurter.app • AI: OpenRouter</p>
-          <p className="mt-1">This is not financial advice. Always do your own research.</p>
-        </footer>
       </main>
+
+      <footer className="max-w-7xl w-full mx-auto px-4 sm:px-6 pb-8 pt-2 text-xs text-muted-foreground flex flex-wrap justify-between gap-2">
+        <span>Data: Yahoo Finance · AI: OpenRouter</span>
+        <span>Not financial advice. Always do your own research.</span>
+      </footer>
 
       {/* Modals */}
       {showAlertSettings && (
@@ -571,19 +518,19 @@ export default function App() {
         />
       )}
       {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setConfirmDelete(null)}>
-          <div className="rounded-xl border border-border bg-card p-6 max-w-sm w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-lg bg-red-500/15">
-                <AlertTriangle className="w-5 h-5 text-red-400" />
+        <div className="sheet-backdrop" onClick={() => setConfirmDelete(null)}>
+          <div className="sheet panel p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="grid place-items-center w-10 h-10 rounded-full bg-red-500/15">
+                <AlertTriangle className="w-5 h-5 text-red-500" />
               </div>
-              <h3 className="font-bold text-foreground">Confirm Removal</h3>
+              <h3 className="text-lg font-semibold">Confirm removal</h3>
             </div>
-            <p className="text-sm text-muted-foreground mb-5">{confirmDelete.message}</p>
-            <div className="flex gap-3 justify-end">
+            <p className="text-sm text-muted-foreground mb-6">{confirmDelete.message}</p>
+            <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setConfirmDelete(null)}
-                className="px-4 py-2 rounded-lg bg-muted text-muted-foreground hover:bg-muted/80 text-sm font-medium transition-colors"
+                className="px-4 py-2 rounded-full bg-muted hover:bg-input text-sm font-semibold transition-colors"
               >
                 Cancel
               </button>
@@ -592,7 +539,7 @@ export default function App() {
                   confirmDelete.onConfirm()
                   setConfirmDelete(null)
                 }}
-                className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 text-sm font-medium transition-colors"
+                className="px-4 py-2 rounded-full bg-red-500 text-white hover:brightness-110 text-sm font-semibold transition"
               >
                 Remove
               </button>
@@ -606,12 +553,86 @@ export default function App() {
   )
 }
 
-function StatBox({ label, value, highlight }) {
-  const colorClass = highlight === 'BUY' ? 'text-green-400' : highlight === 'SELL' ? 'text-red-400' : 'text-yellow-400'
+/** Pill navigation with a thumb that slides to the active item. */
+function Segmented({ items, active, onSelect, className, renaming, renameValue, setRenameValue, onRenameSubmit, onRenameCancel, onRename, onRemove, onAdd }) {
+  const refs = useRef({})
+  const [thumb, setThumb] = useState(null)
+  const layoutKey = items.map(i => i.label).join('|')
+  useLayoutEffect(() => {
+    const el = refs.current[active]
+    if (!el || !el.offsetWidth) return setThumb(null)
+    setThumb({ x: el.offsetLeft, w: el.offsetWidth })
+  }, [active, layoutKey, renaming])
+  useEffect(() => {
+    const el = refs.current[active]
+    const nav = el?.parentElement
+    if (el && nav && nav.scrollWidth > nav.clientWidth) nav.scrollTo({ left: el.offsetLeft - 24, behavior: 'smooth' })
+  }, [active])
+
   return (
-    <div className="p-3 rounded-lg bg-muted/50">
+    <nav className={cn('segmented', className)}>
+      {thumb && <i className="thumb" style={{ width: thumb.w, transform: `translateX(${thumb.x}px)` }} />}
+      {items.map(({ id, label, icon: Icon, removable }) => (
+        <div key={id} ref={el => { refs.current[id] = el }} className="relative z-[1] flex items-center flex-none">
+          {renaming === id ? (
+            <input
+              autoFocus
+              value={renameValue}
+              onChange={e => setRenameValue(e.target.value)}
+              onBlur={onRenameSubmit}
+              onKeyDown={e => { if (e.key === 'Enter') onRenameSubmit(); if (e.key === 'Escape') onRenameCancel() }}
+              className="mx-1 px-3 py-1.5 w-32 rounded-full bg-card text-sm focus:outline-none ring-2 ring-primary/60"
+            />
+          ) : (
+            <button
+              onClick={() => onSelect(id)}
+              onDoubleClick={() => removable && onRename(id)}
+              className={cn('flex items-center gap-1.5', active === id && 'active', removable && active === id && '!pr-1.5')}
+              title={removable ? 'Double-click to rename' : undefined}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {label}
+            </button>
+          )}
+          {removable && active === id && renaming !== id && (
+            <button
+              onClick={() => onRemove(id)}
+              className="!p-1.5 mr-1.5 rounded-full text-muted-foreground hover:text-red-500"
+              title="Remove tab"
+              aria-label={`Remove ${label} tab`}
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      ))}
+      <button onClick={onAdd} className="relative z-[1] flex-none !px-3 hover:text-primary" title="Add new tab" aria-label="Add new tab">
+        <Plus className="w-4 h-4" />
+      </button>
+    </nav>
+  )
+}
+
+function EmptyState({ icon: Icon, children }) {
+  return (
+    <div className="arrive panel flex flex-col items-center justify-center py-16 text-muted-foreground" style={{ '--i': 2 }}>
+      <span className="grid place-items-center w-14 h-14 rounded-full bg-muted mb-3"><Icon className="w-6 h-6" /></span>
+      <p className="text-sm">{children}</p>
+    </div>
+  )
+}
+
+function StatBox({ label, value, highlight, meter }) {
+  const colorClass = highlight === 'BUY' ? 'text-green-500' : highlight === 'SELL' ? 'text-red-500' : 'text-yellow-500'
+  return (
+    <div className="p-4 rounded-lg bg-muted/60">
       <p className="text-xs text-muted-foreground mb-1">{label}</p>
-      <p className={cn('text-lg font-bold tabular-nums', highlight ? colorClass : '')}>{value}</p>
+      <p className={cn('text-xl font-bold num', highlight ? colorClass : '')}>{value}</p>
+      {meter != null && Number.isFinite(meter) && (
+        <div className="mt-2 h-1.5 rounded-full bg-background/60 overflow-hidden">
+          <div className="h-full rounded-full bg-primary transition-[width] duration-700" style={{ width: `${Math.max(0, Math.min(100, meter))}%` }} />
+        </div>
+      )}
     </div>
   )
 }

@@ -3,7 +3,7 @@ import { useStockData } from '../hooks/useStockData.js'
 import { computeSignals } from '../lib/signals.js'
 import StockCard from './StockCard.jsx'
 
-export default function StockCardContainer({ stock, config, alerts, onToggleAlert, onSelect, isActive }) {
+export default function StockCardContainer({ stock, config, alerts, onToggleAlert, onSelect, onRemove, isActive, index }) {
   const { history, currentPrice, loading } = useStockData(stock, config.pollingInterval)
 
   const { current: signal } = useMemo(() => {
@@ -19,7 +19,9 @@ export default function StockCardContainer({ stock, config, alerts, onToggleAler
       alerts={alerts}
       onToggleAlert={onToggleAlert}
       onSelect={onSelect}
+      onRemove={onRemove}
       isActive={isActive}
+      index={index}
     />
   )
 }

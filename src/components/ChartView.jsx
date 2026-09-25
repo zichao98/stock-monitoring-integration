@@ -1,18 +1,16 @@
 import { ResponsiveContainer, ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceDot, LineChart } from 'recharts'
 import { SIGNAL_BUY, SIGNAL_SELL } from '../lib/signals.js'
+import { usePalette, tooltipStyle as makeTooltipStyle } from '../lib/theme.js'
 
-const tooltipStyle = {
-  backgroundColor: 'hsl(222 47% 14%)',
-  border: '1px solid hsl(217 33% 22%)',
-  borderRadius: '8px',
-  fontSize: '12px',
-}
+const axis = { fontSize: 11, tickLine: false, axisLine: false }
 
 export default function ChartView({ signals, pair, intradayData }) {
+  const p = usePalette()
+  const tooltipStyle = makeTooltipStyle(p)
   if (!signals || signals.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64 text-muted-foreground">
-        Loading chart data...
+      <div className="h-80 rounded-lg bg-muted/60 animate-pulse grid place-items-center text-sm text-muted-foreground">
+        Loading chart data…
       </div>
     )
   }
@@ -39,27 +37,18 @@ export default function ChartView({ signals, pair, intradayData }) {
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartData} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
             <defs>
-              <linearGradient id="bbGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.08} />
-                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.08} />
+              <linearGradient id="priceFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={p.blue} stopOpacity={0.28} />
+                <stop offset="100%" stopColor={p.blue} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(217 33% 22%)" />
-            <XAxis
-              dataKey="date"
-              stroke="hsl(215 20% 65%)"
-              fontSize={11}
-              tickFormatter={v => v.slice(5)}
-            />
-            <YAxis
-              stroke="hsl(215 20% 65%)"
-              fontSize={11}
-              domain={['auto', 'auto']}
-              tickFormatter={v => v.toFixed(3)}
-            />
+            <CartesianGrid vertical={false} stroke={p.grid} strokeDasharray="2 4" />
+            <XAxis dataKey="date" stroke={p.axis} {...axis} tickFormatter={v => v.slice(5)} minTickGap={24} />
+            <YAxis stroke={p.axis} {...axis} width={56} domain={['auto', 'auto']} tickFormatter={v => v.toFixed(3)} />
             <Tooltip
               contentStyle={tooltipStyle}
-              labelStyle={{ color: 'hsl(213 31% 91%)' }}
+              labelStyle={{ color: p.text, fontWeight: 600 }}
+              cursor={{ stroke: p.axis, strokeDasharray: '3 3' }}
               formatter={(value, name) => {
                 if (value == null) return ['—', name]
                 const labels = {
@@ -73,86 +62,59 @@ export default function ChartView({ signals, pair, intradayData }) {
                 return [parseFloat(value).toFixed(4), labels[name] || name]
               }}
             />
-            <Area
-              dataKey="bbUpper"
-              stroke="none"
-              fill="url(#bbGradient)"
-              connectNulls
-            />
-            <Area
-              dataKey="bbLower"
-              stroke="none"
-              fill="hsl(222 47% 14%)"
-              connectNulls
-            />
-            <Line dataKey="bbUpper" stroke="#3b82f6" strokeWidth={1} strokeDasharray="4 4" dot={false} connectNulls />
-            <Line dataKey="bbLower" stroke="#3b82f6" strokeWidth={1} strokeDasharray="4 4" dot={false} connectNulls />
-            <Line dataKey="rate" stroke="#22c55e" strokeWidth={2} dot={false} />
-            <Line dataKey="shortSMA" stroke="#f59e0b" strokeWidth={1.5} dot={false} connectNulls />
-            <Line dataKey="longSMA" stroke="#a855f7" strokeWidth={1.5} dot={false} connectNulls />
+            <Line dataKey="bbUpper" stroke={p.axis} strokeOpacity={0.6} strokeWidth={1} strokeDasharray="4 4" dot={false} connectNulls isAnimationActive={false} />
+            <Line dataKey="bbLower" stroke={p.axis} strokeOpacity={0.6} strokeWidth={1} strokeDasharray="4 4" dot={false} connectNulls isAnimationActive={false} />
+            <Area dataKey="rate" stroke={p.blue} strokeWidth={2.2} fill="url(#priceFill)" dot={false} activeDot={{ r: 5, strokeWidth: 2, stroke: p.card }} animationDuration={900} />
+            <Line dataKey="shortSMA" stroke={p.orange} strokeWidth={1.5} dot={false} connectNulls animationDuration={900} />
+            <Line dataKey="longSMA" stroke={p.purple} strokeWidth={1.5} dot={false} connectNulls animationDuration={900} />
             {buySignals.map((d, i) => (
-              <ReferenceDot
-                key={`buy-${i}`}
-                x={d.date}
-                y={d.rate}
-                r={6}
-                fill="#22c55e"
-                stroke="#16a34a"
-                strokeWidth={2}
-              />
+              <ReferenceDot key={`buy-${i}`} x={d.date} y={d.rate} r={5} fill={p.green} stroke={p.card} strokeWidth={2} />
             ))}
             {sellSignals.map((d, i) => (
-              <ReferenceDot
-                key={`sell-${i}`}
-                x={d.date}
-                y={d.rate}
-                r={6}
-                fill="#ef4444"
-                stroke="#dc2626"
-                strokeWidth={2}
-              />
+              <ReferenceDot key={`sell-${i}`} x={d.date} y={d.rate} r={5} fill={p.red} stroke={p.card} strokeWidth={2} />
             ))}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
 
       <div className="h-32">
-        <div className="text-xs text-muted-foreground mb-1">RSI (14)</div>
+        <div className="eyebrow mb-1">RSI (14)</div>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 5, right: 10, bottom: 0, left: 0 }}>
-            <XAxis dataKey="date" stroke="hsl(215 20% 65%)" fontSize={10} tickFormatter={v => v.slice(5)} />
-            <YAxis domain={[0, 100]} stroke="hsl(215 20% 65%)" fontSize={10} />
+            <CartesianGrid vertical={false} stroke={p.grid} strokeDasharray="2 4" />
+            <XAxis dataKey="date" stroke={p.axis} {...axis} fontSize={10} tickFormatter={v => v.slice(5)} minTickGap={24} />
+            <YAxis domain={[0, 100]} ticks={[30, 70]} stroke={p.axis} {...axis} fontSize={10} width={56} />
             <Tooltip
               contentStyle={tooltipStyle}
               formatter={(v) => v != null ? [v.toFixed(1), 'RSI'] : ['—', 'RSI']}
             />
-            <Line dataKey="rsi" stroke="#06b6d4" strokeWidth={1.5} dot={false} connectNulls />
+            <Line dataKey="rsi" stroke={p.cyan} strokeWidth={1.5} dot={false} connectNulls animationDuration={900} />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
-      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#22c55e]" /> Rate</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#f59e0b]" /> SMA(7)</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#a855f7]" /> SMA(25)</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#3b82f6] border-dashed" /> Bollinger Bands</span>
-        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#22c55e]" /> Buy Signal</span>
-        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#ef4444]" /> Sell Signal</span>
+      <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
+        {[['Rate', p.blue], ['SMA(7)', p.orange], ['SMA(25)', p.purple], ['Bollinger Bands', p.axis, true]].map(([label, color, dashed]) => (
+          <span key={label} className="flex items-center gap-1.5"><span className="w-3.5 h-0.5 rounded-full" style={{ background: dashed ? `repeating-linear-gradient(90deg, ${color} 0 3px, transparent 3px 5px)` : color }} /> {label}</span>
+        ))}
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: p.green }} /> Buy Signal</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: p.red }} /> Sell Signal</span>
       </div>
 
       {intradayData && intradayData.length > 1 && (
         <div className="space-y-2">
-          <div className="text-xs text-muted-foreground">Intraday (5-min intervals)</div>
+          <div className="eyebrow">Intraday (5-min intervals)</div>
           <div className="h-40">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={intradayData} margin={{ top: 5, right: 10, bottom: 0, left: 0 }}>
-                <XAxis dataKey="date" stroke="hsl(215 20% 65%)" fontSize={10} />
-                <YAxis stroke="hsl(215 20% 65%)" fontSize={10} domain={['auto', 'auto']} tickFormatter={v => v.toFixed(3)} />
+                <CartesianGrid vertical={false} stroke={p.grid} strokeDasharray="2 4" />
+                <XAxis dataKey="date" stroke={p.axis} {...axis} fontSize={10} minTickGap={24} />
+                <YAxis stroke={p.axis} {...axis} fontSize={10} width={56} domain={['auto', 'auto']} tickFormatter={v => v.toFixed(3)} />
                 <Tooltip
                   contentStyle={tooltipStyle}
                   formatter={(v) => v != null ? [v.toFixed(4), 'Price'] : ['\u2014', 'Price']}
                 />
-                <Line dataKey="rate" stroke="#22c55e" strokeWidth={1.5} dot={false} />
+                <Line dataKey="rate" stroke={p.blue} strokeWidth={1.5} dot={false} animationDuration={900} />
               </LineChart>
             </ResponsiveContainer>
           </div>

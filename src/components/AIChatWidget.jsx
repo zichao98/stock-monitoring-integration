@@ -64,8 +64,8 @@ export default function AIChatWidget({ apiKey, onOpenSettings }) {
       <button
         onClick={() => setOpen(prev => !prev)}
         className={cn(
-          'fixed bottom-6 right-6 z-50 flex items-center justify-center w-14 h-14 rounded-full shadow-lg transition-all',
-          'bg-primary text-primary-foreground hover:scale-105 active:scale-95',
+          'fixed bottom-6 right-6 z-50 flex items-center justify-center w-14 h-14 rounded-full transition-all duration-500 ease-[cubic-bezier(.2,.9,.25,1.15)]',
+          'bg-gradient-to-br from-[#0a84ff] to-[#5e5ce6] text-white shadow-[0_10px_30px_rgb(10_132_255/.4)] hover:scale-105 active:scale-95',
           open && 'rotate-90'
         )}
         title="Discuss with AI"
@@ -75,7 +75,7 @@ export default function AIChatWidget({ apiKey, onOpenSettings }) {
 
       {/* Chat Panel */}
       {open && (
-        <div className="fixed bottom-24 right-6 z-50 w-[480px] max-w-[calc(100vw-3rem)] h-[560px] max-h-[calc(100vh-8rem)] rounded-xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed bottom-24 right-6 z-50 w-[480px] max-w-[calc(100vw-3rem)] h-[560px] max-h-[calc(100vh-8rem)] panel sheet flex flex-col overflow-hidden origin-bottom-right">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
             <div className="flex items-center gap-2">
@@ -131,7 +131,7 @@ export default function AIChatWidget({ apiKey, onOpenSettings }) {
                   )}
                 >
                   {m.role === 'assistant' ? (
-                    <div className="prose prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-table:text-xs prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1 prose-code:text-primary prose-code:before:content-none prose-code:after:content-none prose-pre:overflow-x-auto">
+                    <div className="prose dark:prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-table:text-xs prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1 prose-code:text-primary prose-code:before:content-none prose-code:after:content-none prose-pre:overflow-x-auto">
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm, remarkMath]}
                         rehypePlugins={[rehypeKatex]}
@@ -188,7 +188,7 @@ export default function AIChatWidget({ apiKey, onOpenSettings }) {
               onKeyDown={handleKeyDown}
               placeholder="Type a message..."
               rows={1}
-              className="flex-1 px-3 py-2 rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm resize-none"
+              className="flex-1 px-3 py-2 rounded-lg bg-muted/70 border border-transparent text-foreground focus:outline-none focus:bg-card focus:border-primary/50 focus:ring-4 focus:ring-primary/15 transition text-sm resize-none"
             />
             <button
               onClick={handleSend}

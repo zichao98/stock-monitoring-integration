@@ -1,10 +1,10 @@
 // --- Shared fetch utilities (Yahoo Finance via CORS proxies) ---
 
 const YAHOO_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart'
-// Order matters: the same-origin Pages Function proxy is the most reliable
-// (server-side fetch, no browser CORS, not blocked like the public proxies).
-// The public proxies remain as fallback for local dev, where the Pages
-// Function is not running and /api/proxy will 404 from the Vite dev server.
+// Order matters: the same-origin Worker proxy (worker/proxy.js) is the most
+// reliable (server-side fetch, no browser CORS, not blocked like the public
+// proxies). The public proxies remain as fallback for plain `vite` dev, where
+// the Worker is not running and /api/proxy will 404.
 const CORS_PROXIES = [
   (url) => `/api/proxy?url=${encodeURIComponent(url)}`,
   (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
@@ -100,6 +100,25 @@ export async function fetchIntradayRates(base, target) {
 }
 
 export async function fetchHistoricalRates(base, target, days = 90) {
+  // Yahoo daily closes first: frankfurter.app now redirects to an API that no
+  // longer serves MYR, which left every FX chart on synthetic data.
+  try {
+    const range = days <= 30 ? '1mo' : days <= 90 ? '3mo' : days <= 180 ? '6mo' : '1y'
+    const data = await fetchWithProxyFallback(`${YAHOO_BASE}/${toYahooFxSymbol(base, target)}?range=${range}&interval=1d`)
+    const result = data.chart?.result?.[0]
+    const timestamps = result?.timestamp || []
+    const closes = result?.indicators?.quote?.[0]?.close || []
+    const history = []
+    for (let i = 0; i < timestamps.length; i++) {
+      if (closes[i] == null) continue
+      const d = new Date(timestamps[i] * 1000)
+      history.push({ date: d.toISOString().slice(0, 10), rate: parseFloat(closes[i].toFixed(4)), timestamp: d.getTime() })
+    }
+    if (history.length > 1) return history
+  } catch (err) {
+    console.warn('Yahoo FX history failed, trying Frankfurter:', err.message)
+  }
+
   try {
     const end = new Date()
     const start = new Date()

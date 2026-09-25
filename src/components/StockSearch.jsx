@@ -66,7 +66,7 @@ export default function StockSearch({ watchlist, onAdd, onRemove }) {
           onChange={handleChange}
           onFocus={() => setShowResults(true)}
           placeholder="Search stocks by symbol or name..."
-          className="w-full pl-10 pr-4 py-2 rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+          className="w-full pl-10 pr-10 py-3 rounded-full bg-card shadow-[var(--shadow)] border border-transparent text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/15 transition text-sm"
         />
         {searching && (
           <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground animate-spin" />
@@ -74,7 +74,7 @@ export default function StockSearch({ watchlist, onAdd, onRemove }) {
       </div>
 
       {showResults && query.trim() && (
-        <div className="absolute top-full mt-2 w-full rounded-lg border border-border bg-card shadow-xl z-50 max-h-80 overflow-y-auto scrollbar-thin">
+        <div className="absolute top-full mt-2 w-full popover z-50 max-h-80 overflow-y-auto scrollbar-thin">
           {results.length === 0 && !searching ? (
             <div className="p-3 text-sm text-muted-foreground text-center">
               No results found. Try typing a stock symbol directly (e.g. MU, AAPL, 2330).
@@ -87,7 +87,7 @@ export default function StockSearch({ watchlist, onAdd, onRemove }) {
               return (
                 <div
                   key={item.symbol}
-                  className="flex items-center justify-between px-3 py-2 hover:bg-muted/50 transition-colors border-b border-border last:border-0"
+                  className="flex items-center justify-between px-3 py-2 hover:bg-muted/60 transition-colors border-b border-border/60 last:border-0"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
