@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { fetchStockPrice, fetchStockHistory, fetchIntradayStock } from '../lib/api.js'
 
 export function useStockData(stock, pollingInterval = 30) {
+  const symbol = stock?.yahooSymbol
   const [history, setHistory] = useState([])
   const [intradayHistory, setIntradayHistory] = useState([])
   const [currentPrice, setCurrentPrice] = useState(null)
@@ -9,20 +10,25 @@ export function useStockData(stock, pollingInterval = 30) {
   const [error, setError] = useState(null)
   const [lastUpdated, setLastUpdated] = useState(null)
   const intervalRef = useRef(null)
+  // The symbol responses belong to; late replies for a previous symbol are dropped
+  const currentSymbol = useRef(symbol)
 
   const loadHistorical = useCallback(async () => {
+    if (!symbol) return
     try {
-      const hist = await fetchStockHistory(stock.yahooSymbol, '3mo')
-      setHistory(hist)
+      const hist = await fetchStockHistory(symbol, '3mo')
+      if (currentSymbol.current === symbol) setHistory(hist)
     } catch (err) {
       console.warn('Stock history load failed:', err.message)
     }
-  }, [stock.yahooSymbol])
+  }, [symbol])
 
   const pollPrice = useCallback(async () => {
+    if (!symbol) return
     try {
       setError(null)
-      const data = await fetchStockPrice(stock.yahooSymbol)
+      const data = await fetchStockPrice(symbol)
+      if (currentSymbol.current !== symbol) return
       setCurrentPrice(data.price)
       setLastUpdated(Date.now())
 
@@ -35,18 +41,26 @@ export function useStockData(stock, pollingInterval = 30) {
         return [...prev, { date: today, rate: data.price, timestamp: Date.now() }]
       })
 
-      const intraday = await fetchIntradayStock(stock.yahooSymbol)
-      if (intraday.length > 0) {
+      const intraday = await fetchIntradayStock(symbol)
+      if (intraday.length > 0 && currentSymbol.current === symbol) {
         setIntradayHistory(intraday)
       }
     } catch (err) {
-      setError(err.message)
+      if (currentSymbol.current === symbol) setError(err.message)
     } finally {
-      setLoading(false)
+      if (currentSymbol.current === symbol) setLoading(false)
     }
-  }, [stock.yahooSymbol])
+  }, [symbol])
 
   useEffect(() => {
+    currentSymbol.current = symbol
+    // Clear the previous stock's data so its chart never shows under this one
+    setHistory([])
+    setIntradayHistory([])
+    setCurrentPrice(null)
+    setError(null)
+    if (!symbol) { setLoading(false); return }
+
     setLoading(true)
     loadHistorical().then(() => pollPrice())
 
@@ -55,7 +69,7 @@ export function useStockData(stock, pollingInterval = 30) {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
-  }, [loadHistorical, pollPrice, pollingInterval])
+  }, [symbol, loadHistorical, pollPrice, pollingInterval])
 
   return { history, intradayHistory, currentPrice, loading, error, lastUpdated, refresh: pollPrice }
 }

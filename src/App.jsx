@@ -33,7 +33,8 @@ let tabIdCounter = 0
 export default function App() {
   const [activeTab, setActiveTab] = useState('fx')
   const [activePairId, setActivePairId] = useState('MYR-TWD')
-  const [activeStockId, setActiveStockId] = useState('TW-0050')
+  // Selected stock per watchlist tab, so each tab's chart shows one of its own stocks
+  const [selectedStockByTab, setSelectedStockByTab] = useState({})
   const [config, setConfig] = useLocalStorage('fx-config', DEFAULT_CONFIG)
   const [apiKey, setApiKey] = useLocalStorage('openrouter-key', '')
   const [alerts, setAlerts] = useLocalStorage('fx-alerts', {})
@@ -63,9 +64,14 @@ export default function App() {
   }, [activeTab])
 
   const activePair = currencyPairs.find(p => p.id === activePairId)
-  const allStocks = stockTabs.flatMap(t => t.stocks)
-  const activeStock = allStocks.find(s => s.id === activeStockId)
   const activeStockTab = stockTabs.find(t => t.id === activeTab)
+  const activeStock = activeStockTab
+    ? activeStockTab.stocks.find(s => s.id === selectedStockByTab[activeStockTab.id]) || activeStockTab.stocks[0]
+    : undefined
+  const activeStockId = activeStock?.id
+  const setActiveStockId = useCallback((id) => {
+    setSelectedStockByTab(prev => ({ ...prev, [activeTab]: id }))
+  }, [activeTab])
 
   const fxData = useRateData(activePair, config.pollingInterval)
   const stockData = useStockData(activeStock, config.pollingInterval)
