@@ -7,7 +7,7 @@ import { Loader2, RefreshCw, ExternalLink, AlertTriangle, Wallet } from 'lucide-
 import { fetchStockPrice } from '../lib/api.js'
 import { getPortfolioInsight } from '../lib/ai.js'
 import { cn } from '../lib/utils.js'
-import { useLengsHoldings, useMyrRates } from '../hooks/useLengsHoldings.js'
+import { useMyrRates } from '../hooks/useLengsHoldings.js'
 import { AnimatedNumber, Delta } from './ui.jsx'
 
 const LENGS_URL = 'https://lengs-funding.zichaoleng55.workers.dev/#portfolio'
@@ -21,8 +21,8 @@ const signed = (n, digits = 2) => n == null ? '—' : `${n >= 0 ? '+' : ''}${fmt
 const decimalsFor = (currency) => currency === 'TWD' ? 0 : 2
 
 /** Holdings mirrored from Lengs Funding: read-only here, edited there. Totals are converted to MYR. */
-export default function Portfolio({ apiKey, onOpenSettings }) {
-  const { holdings: synced, updatedAt, syncedAt, loading: syncing, error: syncError, refresh } = useLengsHoldings()
+export default function Portfolio({ lengs, apiKey, onOpenSettings }) {
+  const { holdings: synced, updatedAt, syncedAt, loading: syncing, error: syncError, refresh } = lengs
   const { toMyr } = useMyrRates()
   const [quotes, setQuotes] = useState({})
   const [loadingPrices, setLoadingPrices] = useState(false)

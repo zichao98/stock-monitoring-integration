@@ -4,6 +4,7 @@ import { useRateData } from './hooks/useRateData.js'
 import { useStockData } from './hooks/useStockData.js'
 import { useLocalStorage } from './hooks/useLocalStorage.js'
 import { useCountdown } from './hooks/useCountdown.js'
+import { useLengsHoldings } from './hooks/useLengsHoldings.js'
 import { computeSignals } from './lib/signals.js'
 import { percentChange } from './lib/indicators.js'
 import CurrencyCardContainer from './components/CurrencyCardContainer.jsx'
@@ -27,6 +28,9 @@ const DEFAULT_STOCK_TABS = [
   { id: 'my-stocks', label: 'Malaysia Stocks', stocks: MALAYSIA_STOCKS },
 ]
 const MY_TAB_ADDED_KEY = 'fx-my-tab-added'
+// Holdings already copied into a watchlist; deleting one later keeps it deleted
+const AUTO_WATCHED_KEY = 'fx-auto-watched-holdings'
+const HOLDING_TAB = { TW: 'tw-stocks', US: 'us-stocks', MY: 'my-stocks' }
 
 let tabIdCounter = 0
 
@@ -56,6 +60,25 @@ export default function App() {
     } catch { return }
     setStockTabs(prev => prev.some(t => t.id === 'my-stocks') ? prev : [...prev, DEFAULT_STOCK_TABS.find(t => t.id === 'my-stocks')])
   }, [setStockTabs])
+
+  // Add each Lengs Funding holding to its market's watchlist the first time it is seen
+  const lengs = useLengsHoldings()
+  useEffect(() => {
+    if (!lengs.holdings.length || !localStorage.getItem(MY_TAB_ADDED_KEY)) return
+    let seen
+    try { seen = new Set(JSON.parse(localStorage.getItem(AUTO_WATCHED_KEY) || '[]')) } catch { return }
+    // Skip symbols Yahoo has no quotes for (e.g. the 6742UW warrant)
+    const quotable = (h) => h.market !== 'MY' || h.symbol.endsWith('.KL')
+    const fresh = lengs.holdings.filter(h => HOLDING_TAB[h.market] && quotable(h) && !seen.has(h.symbol))
+    if (!fresh.length) return
+    setStockTabs(prev => prev.map(tab => {
+      const add = fresh.filter(h => HOLDING_TAB[h.market] === tab.id && !tab.stocks.some(s => s.yahooSymbol === h.symbol))
+      if (!add.length) return tab
+      return { ...tab, stocks: [...tab.stocks, ...add.map(h => ({ id: `${h.market}-${h.code}`, symbol: h.code, yahooSymbol: h.symbol, label: h.name, market: h.market }))] }
+    }))
+    fresh.forEach(h => seen.add(h.symbol))
+    try { localStorage.setItem(AUTO_WATCHED_KEY, JSON.stringify([...seen])) } catch { /* ignore */ }
+  }, [lengs.holdings, setStockTabs])
 
   const switchTab = useCallback((id) => {
     const apply = () => { setActiveTab(id); window.scrollTo({ top: 0, behavior: 'instant' }) }
@@ -375,6 +398,7 @@ export default function App() {
         {isPortfolioTab && (
           <div className="arrive" style={{ '--i': 1 }}>
             <Portfolio
+              lengs={lengs}
               apiKey={apiKey}
               onOpenSettings={() => setShowSettings(true)}
             />

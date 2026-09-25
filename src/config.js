@@ -11,10 +11,15 @@ export const TAIWAN_STOCKS = [
   { id: 'TW-00878', symbol: '00878', yahooSymbol: '00878.TW', label: '國泰永續高股息 ETF', market: 'TW' },
   { id: 'TW-2303', symbol: '2303', yahooSymbol: '2303.TW', label: '聯華電子', market: 'TW' },
   { id: 'TW-2330', symbol: '2330', yahooSymbol: '2330.TW', label: '台灣積體電路 (TSMC)', market: 'TW' },
+  { id: 'TW-00679B', symbol: '00679B', yahooSymbol: '00679B.TWO', label: '元大美債20年', market: 'TW' },
+  { id: 'TW-8299', symbol: '8299', yahooSymbol: '8299.TWO', label: '群聯電子', market: 'TW' },
 ]
 
 export const US_STOCKS = [
-  { id: 'US-SPCX', symbol: 'SPCX', yahooSymbol: 'SPCX', label: 'SPCX (SpaceX-related)', market: 'US' },
+  { id: 'US-SPCX', symbol: 'SPCX', yahooSymbol: 'SPCX', label: 'Tuttle Capital SpaceX ETF', market: 'US' },
+  { id: 'US-VOO', symbol: 'VOO', yahooSymbol: 'VOO', label: 'Vanguard S&P 500 ETF', market: 'US' },
+  { id: 'US-INTC', symbol: 'INTC', yahooSymbol: 'INTC', label: 'Intel', market: 'US' },
+  { id: 'US-MU', symbol: 'MU', yahooSymbol: 'MU', label: 'Micron Technology', market: 'US' },
 ]
 
 export const MALAYSIA_STOCKS = [

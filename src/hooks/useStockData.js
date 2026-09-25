@@ -33,12 +33,14 @@ export function useStockData(stock, pollingInterval = 30) {
       setLastUpdated(Date.now())
 
       setHistory(prev => {
-        const today = new Date().toISOString().slice(0, 10)
+        // Date the quote by its last trade, not by today's date: while a market is
+        // closed, a "today" entry would repeat the last close and show 0.00%.
+        const today = new Date(data.timestamp || Date.now()).toISOString().slice(0, 10)
         const todayEntry = prev.find(h => h.date === today)
         if (todayEntry) {
           return prev.map(h => h.date === today ? { ...h, rate: data.price } : h)
         }
-        return [...prev, { date: today, rate: data.price, timestamp: Date.now() }]
+        return [...prev, { date: today, rate: data.price, timestamp: data.timestamp || Date.now() }]
       })
 
       const intraday = await fetchIntradayStock(symbol)
