@@ -60,7 +60,7 @@ export function Delta({ value, className }) {
   if (value == null || !Number.isFinite(value)) return null
   const up = value >= 0
   return (
-    <span className={cn('num inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold',
+    <span className={cn('num inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold',
       up ? 'bg-green-500/15 text-green-500' : 'bg-red-500/15 text-red-500', className)}>
       {up ? '▲' : '▼'} {Math.abs(value).toFixed(2)}%
     </span>

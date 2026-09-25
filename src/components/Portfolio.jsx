@@ -163,12 +163,12 @@ export default function Portfolio({ apiKey, onOpenSettings }) {
                 </div>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[640px]">
+                <table className="w-full text-sm min-w-[720px] whitespace-nowrap">
                   <thead>
                     <tr className="text-xs text-muted-foreground border-y border-border/60">
                       <th className="text-left font-medium px-5 py-2.5">Holding</th>
                       <th className="text-right font-medium px-3 py-2.5">Shares</th>
-                      <th className="text-right font-medium px-3 py-2.5">Avg cost / Price</th>
+                      <th className="text-right font-medium px-3 py-2.5">Avg cost · Price</th>
                       <th className="text-right font-medium px-3 py-2.5">Value</th>
                       <th className="text-right font-medium px-3 py-2.5">P&L</th>
                       <th className="text-left font-medium px-5 py-2.5 w-36">Weight</th>
@@ -182,7 +182,7 @@ export default function Portfolio({ apiKey, onOpenSettings }) {
                           <td className="px-5 py-3">
                             <div className="flex items-center gap-2">
                               <span className="font-semibold num">{r.code}</span>
-                              <span className="truncate max-w-[180px]">{r.name}</span>
+                              <span className="truncate max-w-[200px]">{r.name}</span>
                             </div>
                             <div className="text-xs text-muted-foreground num">{r.symbol}</div>
                           </td>
