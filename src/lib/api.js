@@ -1,3 +1,5 @@
+import { marketOf } from '../config.js'
+
 // --- Shared fetch utilities (Yahoo Finance via CORS proxies) ---
 
 const YAHOO_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart'
@@ -266,7 +268,7 @@ export async function searchStockSymbols(query) {
         shortName: item.shortname || item.longname || item.symbol,
         exchange: item.exchange || item.exchDisp || '',
         quoteType: item.quoteType,
-        market: item.exchange?.includes('TW') || item.symbol?.endsWith('.TW') ? 'TW' : 'US',
+        market: item.exchange?.includes('TW') ? 'TW' : marketOf(item.symbol),
       }))
     if (results.length > 0) return results
   } catch (err) {
@@ -275,7 +277,7 @@ export async function searchStockSymbols(query) {
 
   // Fallback: validate the query as a direct symbol via the chart API
   // Try the raw symbol, and common suffixes for international markets
-  const candidates = [q, `${q}.TW`, `${q}.T`, `${q}.L`, `${q}.HK`]
+  const candidates = [q, `${q}.TW`, `${q}.TWO`, `${q}.KL`, `${q}.T`, `${q}.L`, `${q}.HK`]
   const seen = new Set()
   const results = []
 
@@ -292,7 +294,7 @@ export async function searchStockSymbols(query) {
           shortName: result.meta?.longName || result.meta?.shortName || sym,
           exchange: result.meta?.exchangeName || '',
           quoteType: result.meta?.instrumentType || 'EQUITY',
-          market: sym.endsWith('.TW') ? 'TW' : 'US',
+          market: marketOf(sym),
         })
       }
     } catch {

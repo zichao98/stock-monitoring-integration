@@ -92,7 +92,7 @@
   @media (prefers-color-scheme: dark) { .panel { border-color: hsl(0 0% 100% / .04); } }
   .popover {
     border-radius: 16px;
-    background: hsl(var(--card) / .92);
+    background: hsl(var(--card) / .98);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
     box-shadow: var(--shadow-lg);

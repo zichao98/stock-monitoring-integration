@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useLayoutEffect, useRef } from 'react'
-import { CURRENCY_PAIRS, TAIWAN_STOCKS, US_STOCKS, DEFAULT_CONFIG } from './config.js'
+import { CURRENCY_PAIRS, TAIWAN_STOCKS, US_STOCKS, MALAYSIA_STOCKS, DEFAULT_CONFIG } from './config.js'
 import { useRateData } from './hooks/useRateData.js'
 import { useStockData } from './hooks/useStockData.js'
 import { useLocalStorage } from './hooks/useLocalStorage.js'
@@ -24,7 +24,9 @@ import { AnimatedNumber, CountdownRing, Delta } from './components/ui.jsx'
 const DEFAULT_STOCK_TABS = [
   { id: 'tw-stocks', label: 'Taiwan Stocks', stocks: TAIWAN_STOCKS },
   { id: 'us-stocks', label: 'US Stocks', stocks: US_STOCKS },
+  { id: 'my-stocks', label: 'Malaysia Stocks', stocks: MALAYSIA_STOCKS },
 ]
+const MY_TAB_ADDED_KEY = 'fx-my-tab-added'
 
 let tabIdCounter = 0
 
@@ -43,6 +45,16 @@ export default function App() {
   const [renamingTab, setRenamingTab] = useState(null)
   const [renameValue, setRenameValue] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(null)
+
+  // Tabs saved before the Malaysia tab existed: add it once. The flag keeps
+  // it from coming back if it is deleted later.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(MY_TAB_ADDED_KEY)) return
+      localStorage.setItem(MY_TAB_ADDED_KEY, '1')
+    } catch { return }
+    setStockTabs(prev => prev.some(t => t.id === 'my-stocks') ? prev : [...prev, DEFAULT_STOCK_TABS.find(t => t.id === 'my-stocks')])
+  }, [setStockTabs])
 
   const switchTab = useCallback((id) => {
     const apply = () => { setActiveTab(id); window.scrollTo({ top: 0, behavior: 'instant' }) }

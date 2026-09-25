@@ -17,7 +17,16 @@ export const US_STOCKS = [
   { id: 'US-SPCX', symbol: 'SPCX', yahooSymbol: 'SPCX', label: 'SPCX (SpaceX-related)', market: 'US' },
 ]
 
-export const ALL_STOCKS = [...TAIWAN_STOCKS, ...US_STOCKS]
+export const MALAYSIA_STOCKS = [
+  { id: 'MY-1155', symbol: '1155', yahooSymbol: '1155.KL', label: 'Maybank (Malayan Banking)', market: 'MY' },
+  { id: 'MY-6742', symbol: '6742', yahooSymbol: '6742.KL', label: 'YTL Power International', market: 'MY' },
+  { id: 'MY-0820EA', symbol: '0820EA', yahooSymbol: '0820EA.KL', label: 'FTSE4Good Bursa Malaysia ETF', market: 'MY' },
+]
+
+export const ALL_STOCKS = [...TAIWAN_STOCKS, ...US_STOCKS, ...MALAYSIA_STOCKS]
+
+/** TW for Taiwan (.TW/.TWO), MY for Bursa Malaysia (.KL), otherwise US. */
+export const marketOf = (symbol = '') => /\.TWO?$/i.test(symbol) ? 'TW' : /\.KL$/i.test(symbol) ? 'MY' : 'US'
 
 export const DEFAULT_CONFIG = {
   shortPeriod: 7,
